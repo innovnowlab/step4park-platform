@@ -180,11 +180,13 @@ struct ContentView: View {
 
     private var searchBarRow: some View {
         HStack(spacing: 10) {
+
+            // 🔎 Search Bar
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 16, weight: .semibold))
 
-                TextField("Rechercher un lieu, une adresse…", text: $vm.query)
+                TextField("Rechercher un lieu…", text: $vm.query)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .submitLabel(.search)
@@ -199,10 +201,6 @@ struct ContentView: View {
                     Button {
                         vm.query = ""
                         vm.results = []
-                        vm.selectedItem = nil
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                            sheetLevel = .collapsed
-                        }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 16, weight: .semibold))
@@ -210,15 +208,6 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    // Placeholder mic action
-                } label: {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .buttonStyle(.plain)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
@@ -228,21 +217,21 @@ struct ContentView: View {
                     .strokeBorder(.white.opacity(0.18), lineWidth: 1)
             )
 
-            // Small button to expand quickly (nice UX)
+            // 👤 Profile Button (Apple style circle)
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                    sheetLevel = (sheetLevel == .collapsed ? .medium : .collapsed)
-                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                print("Profil tapped")
             } label: {
-                Image(systemName: sheetLevel == .collapsed ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 40, height: 40)
+                Image(systemName: "person.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 42, height: 42)
             }
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(.ultraThinMaterial, in: Circle())
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                Circle()
+                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
             )
+            .shadow(radius: 8, y: 4)
             .buttonStyle(.plain)
         }
     }
