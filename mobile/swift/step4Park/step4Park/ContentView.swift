@@ -40,20 +40,17 @@ struct ContentView: View {
             .padding(.trailing, 14)
             .padding(.bottom, 140)
         }
-        .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
-            // ✅ Safety: keep it always present
-            vm.isSheetPresented = true
+       .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
+    vm.isSheetPresented = true
         }) {
-            bottomSheet
-                .presentationDetents(
-                    [.fraction(collapsedFraction), .medium, .large],
-                    selection: sheetDetentBinding
-                )
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.ultraThinMaterial)
-                .presentationCornerRadius(24)
-                .interactiveDismissDisabled(true) // ✅ never fully disappears
-        }
+    bottomSheet
+        .presentationDetents([.fraction(collapsedFraction), .medium, .large], selection: sheetDetentBinding)
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.ultraThinMaterial)
+        .presentationCornerRadius(24)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium)) // ✅ IMPORTANT: Map interactive
+        .interactiveDismissDisabled(true)
+}
         .onAppear {
             vm.requestLocation()
             vm.isSheetPresented = true
@@ -76,6 +73,7 @@ struct ContentView: View {
     // MARK: - Map Layer
 
     private var mapLayer: some View {
+    MapReader { proxy in
         Map(position: $vm.position, selection: $vm.selectedItem) {
             UserAnnotation()
 
@@ -86,20 +84,21 @@ struct ContentView: View {
         }
         .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
         .ignoresSafeArea()
-        // ✅ Important: don't block MapKit selection
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                DispatchQueue.main.async {
-                    // Tap on empty map -> collapse panel
-                    if vm.selectedItem == nil {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                            sheetLevel = .collapsed
-                        }
+
+        // ✅ Tap “dans le vide” -> collapse (sans casser pinch/zoom)
+        .onTapGesture { screenPoint in
+            // Laisse MapKit gérer un tap sur un marker.
+            // Si après le runloop aucun marker n’est sélectionné => tap dans le vide.
+            DispatchQueue.main.async {
+                if vm.selectedItem == nil {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                        sheetLevel = .collapsed
                     }
                 }
             }
-        )
+        }
     }
+}
 
     // MARK: - Floating Controls
 
