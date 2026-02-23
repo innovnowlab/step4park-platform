@@ -10,57 +10,50 @@ import MapKit
 import CoreLocation
 import Combine
 
-
-// MARK: - ContentView (Apple Maps-like, Search in Bottom Panel)
+// MARK: - ContentView
 
 struct ContentView: View {
     @StateObject private var vm = AppleMapsLikeViewModel()
 
-    private enum SheetLevel: Hashable {
-        case collapsed, medium, large
-    }
-
+    private enum SheetLevel: Hashable { case collapsed, medium, large }
     @State private var sheetLevel: SheetLevel = .collapsed
 
-    // Always-visible collapsed panel height
-    private let collapsedFraction: CGFloat = 0.18
+    // ✅ Focus state for search
+    @FocusState private var isSearchFocused: Bool
+
+    // Panel height when collapsed (still visible)
+    private let collapsedFraction: CGFloat = 0.08
 
     var body: some View {
         ZStack {
             mapLayer
 
-            // Floating controls (right side)
+            // Floating controls (right)
             VStack {
-                Spacer()
                 HStack {
                     Spacer()
                     floatingControls
                 }
+                Spacer()
             }
-            .padding(.trailing, 14)
-            .padding(.bottom, 140)
+            .padding(.top, 70)      // espace sous la Dynamic Island / notch
+            .padding(.trailing, 12) // marge droite
         }
-       .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
-    vm.isSheetPresented = true
+        .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
+            vm.isSheetPresented = true
         }) {
-    bottomSheet
-        .presentationDetents([.fraction(collapsedFraction), .medium, .large], selection: sheetDetentBinding)
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.ultraThinMaterial)
-        .presentationCornerRadius(24)
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium)) // ✅ IMPORTANT: Map interactive
-        .interactiveDismissDisabled(true)
-}
+            bottomSheet
+                .presentationDetents([.fraction(collapsedFraction), .medium, .large], selection: sheetDetentBinding)
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
+                .presentationBackground(.ultraThinMaterial)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium)) // ✅ Map interactive in collapsed/medium
+                .interactiveDismissDisabled(true) // ✅ never disappears
+        }
         .onAppear {
             vm.requestLocation()
             vm.isSheetPresented = true
         }
-        .alert("Erreur", isPresented: $vm.showError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(vm.errorMessage)
-        }
-        // When selection changes, mimic Apple Plans behavior
         .onChange(of: vm.selectedItem) { _, newValue in
             if newValue != nil {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
@@ -68,12 +61,16 @@ struct ContentView: View {
                 }
             }
         }
+        .alert("Erreur", isPresented: $vm.showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(vm.errorMessage)
+        }
     }
 
-    // MARK: - Map Layer
+    // MARK: - Map
 
     private var mapLayer: some View {
-    MapReader { proxy in
         Map(position: $vm.position, selection: $vm.selectedItem) {
             UserAnnotation()
 
@@ -84,72 +81,62 @@ struct ContentView: View {
         }
         .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
         .ignoresSafeArea()
-
-        // ✅ Tap “dans le vide” -> collapse (sans casser pinch/zoom)
-        .onTapGesture { screenPoint in
-            // Laisse MapKit gérer un tap sur un marker.
-            // Si après le runloop aucun marker n’est sélectionné => tap dans le vide.
-            DispatchQueue.main.async {
-                if vm.selectedItem == nil {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                        sheetLevel = .collapsed
-                    }
-                }
-            }
-        }
     }
-}
 
-    // MARK: - Floating Controls
+    // MARK: - Floating Controls (compact)
 
     private var floatingControls: some View {
-        VStack(spacing: 10) {
-            Button {
+        VStack(spacing: 8) {
+            compactFloatingButton(systemName: "location.fill") {
                 vm.centerOnUser()
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                     sheetLevel = .collapsed
                 }
-            } label: {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(width: 44, height: 44)
             }
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(radius: 10, y: 6)
 
-            Button {
+            compactFloatingButton(systemName: vm.isSatellite ? "map.fill" : "globe.europe.africa.fill") {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                     vm.isSatellite.toggle()
                 }
-            } label: {
-                Image(systemName: vm.isSatellite ? "map.fill" : "globe.europe.africa.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(width: 44, height: 44)
             }
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(radius: 10, y: 6)
         }
     }
 
-    // MARK: - Bottom Sheet (Search lives here)
+    @ViewBuilder
+    private func compactFloatingButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .bold))
+                .frame(width: 34, height: 34)
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+        )
+        .shadow(radius: 5, y: 3)
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Bottom Sheet
 
     private var bottomSheet: some View {
         VStack(spacing: 10) {
 
-            // ✅ Collapsed: Search bar only (Apple Plans vibe)
-            // ✅ Medium/Large: Search bar + content
-            searchBarRow
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+            // ✅ Collapsed & NOT focused => ultra compact search pill
+            // ✅ Otherwise => full search row
+            if sheetLevel == .collapsed && !isSearchFocused {
+                compactSearchPillRow
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+            } else {
+                expandedSearchRow
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+            }
 
+            // Expanded content only when not collapsed
             if sheetLevel != .collapsed {
                 Divider().opacity(0.35)
 
@@ -164,29 +151,79 @@ struct ContentView: View {
                 }
             }
 
-            Spacer(minLength: 10)
+            Spacer(minLength: 8)
         }
-        .onChange(of: vm.query) { _, newValue in
-            // Optional: if user starts typing while collapsed, open to medium
-            if sheetLevel == .collapsed, newValue.count >= 2 {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                    sheetLevel = .medium
-                }
+        .onChange(of: isSearchFocused) { _, focused in
+            // If user leaves focus while collapsed, keep it compact
+            if !focused, sheetLevel == .collapsed {
+                // no-op, view switches automatically
             }
         }
     }
 
-    // MARK: - Search Bar Row
+    // MARK: - Compact pill (collapsed idle)
 
-    private var searchBarRow: some View {
+    private var compactSearchPillRow: some View {
         HStack(spacing: 10) {
 
-            // 🔎 Search Bar
+            // Search pill -> tap to expand + focus
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    isSearchFocused = true
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .semibold))
+
+                    Text(vm.query.isEmpty ? "Rechercher" : vm.query)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(vm.query.isEmpty ? .secondary : .primary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 8)     // ✅ smaller
+                .padding(.horizontal, 12) // ✅ smaller
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+            )
+            .buttonStyle(.plain)
+
+            // Profile circle next to it
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                print("Profil tapped")
+            } label: {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 34, height: 34) // ✅ smaller
+            }
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+            .shadow(radius: 5, y: 3)
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Expanded search row (when active)
+
+    private var expandedSearchRow: some View {
+        HStack(spacing: 10) {
+
+            // Full search bar
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 16, weight: .semibold))
 
-                TextField("Rechercher un lieu…", text: $vm.query)
+                TextField("Rechercher un lieu, une adresse…", text: $vm.query)
+                    .focused($isSearchFocused)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .submitLabel(.search)
@@ -201,6 +238,8 @@ struct ContentView: View {
                     Button {
                         vm.query = ""
                         vm.results = []
+                        vm.selectedItem = nil
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 16, weight: .semibold))
@@ -208,6 +247,14 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .buttonStyle(.plain)
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
@@ -217,26 +264,23 @@ struct ContentView: View {
                     .strokeBorder(.white.opacity(0.18), lineWidth: 1)
             )
 
-            // 👤 Profile Button (Apple style circle)
+            // Profile circle (normal size)
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 print("Profil tapped")
             } label: {
                 Image(systemName: "person.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 42, height: 42)
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 40, height: 40)
             }
             .background(.ultraThinMaterial, in: Circle())
-            .overlay(
-                Circle()
-                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-            )
-            .shadow(radius: 8, y: 4)
+            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+            .shadow(radius: 7, y: 4)
             .buttonStyle(.plain)
         }
     }
 
-    // MARK: - Header Row (only when expanded)
+    // MARK: - Header row (only expanded)
 
     private var headerRow: some View {
         HStack {
@@ -365,13 +409,15 @@ struct ContentView: View {
                     sheetLevel = .medium
                 } else {
                     sheetLevel = .collapsed
+                    // When collapsing, remove focus to go back to compact pill
+                    DispatchQueue.main.async { isSearchFocused = false }
                 }
             }
         )
     }
 }
 
-// MARK: - ViewModel (Map + Search + Location)
+// MARK: - ViewModel
 
 final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var query: String = ""
@@ -426,8 +472,7 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Search around user if possible; otherwise Paris fallback 🇫🇷
-        let center = lastUserCoordinate ?? CLLocationCoordinate2D(latitude: 48.8566, longitude: 2.3522)
+        let center = lastUserCoordinate ?? CLLocationCoordinate2D(latitude: 48.8566, longitude: 2.3522) // Paris fallback 🇫🇷
         let region = MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08))
 
         let request = MKLocalSearch.Request()
@@ -437,23 +482,16 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
         MKLocalSearch(request: request).start { [weak self] response, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    self?.show(error: error.localizedDescription)
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
                     return
                 }
-                let items = response?.mapItems ?? []
-                self?.results = items
-
-                // Optional: auto-select first result
-                if let first = items.first {
+                self?.results = response?.mapItems ?? []
+                if let first = self?.results.first {
                     self?.select(first)
                 }
             }
         }
-    }
-
-    private func show(error: String) {
-        errorMessage = error
-        showError = true
     }
 
     // MARK: CLLocationManagerDelegate
@@ -462,7 +500,6 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
         guard let loc = locations.last else { return }
         lastUserCoordinate = loc.coordinate
 
-        // Set initial camera once
         if case .automatic = position {
             position = .region(MKCoordinateRegion(
                 center: loc.coordinate,
@@ -472,7 +509,8 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        show(error: error.localizedDescription)
+        errorMessage = error.localizedDescription
+        showError = true
     }
 }
 
