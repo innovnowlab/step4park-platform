@@ -10,40 +10,27 @@ import MapKit
 import CoreLocation
 import Combine
 
-// MARK: - Root Apple Maps-like View
+
+// MARK: - ContentView (Apple Maps-like, Search in Bottom Panel)
 
 struct ContentView: View {
     @StateObject private var vm = AppleMapsLikeViewModel()
 
+    private enum SheetLevel: Hashable {
+        case collapsed, medium, large
+    }
+
+    @State private var sheetLevel: SheetLevel = .collapsed
+
+    // Always-visible collapsed panel height
+    private let collapsedFraction: CGFloat = 0.18
+
     var body: some View {
         ZStack {
-            // 1) Map full screen
-            Map(position: $vm.position, selection: $vm.selectedItem) {
-                // User location
-                UserAnnotation()
+            mapLayer
 
-                // Search results pins
-                ForEach(vm.results, id: \.self) { item in
-                    Marker(item.name ?? "Place", coordinate: item.placemark.coordinate)
-                        .tag(item)
-                }
-            }
-            .mapControls {
-                // keep minimal; we build our own buttons
-            }
-            .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
-            .ignoresSafeArea()
-
-            // 2) Top overlay (header)
-            VStack(spacing: 12) {
-                headerBar
-                Spacer()
-            }
-            .padding(.top, 8)
-            .padding(.horizontal, 14)
-
-            // 3) Floating controls (right side)
-            VStack(spacing: 10) {
+            // Floating controls (right side)
+            VStack {
                 Spacer()
                 HStack {
                     Spacer()
@@ -51,20 +38,21 @@ struct ContentView: View {
                 }
             }
             .padding(.trailing, 14)
-            .padding(.bottom, 140) // keep above bottom sheet
+            .padding(.bottom, 140)
         }
-        .safeAreaInset(edge: .bottom) {
+        .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
+            // ✅ Safety: keep it always present
+            vm.isSheetPresented = true
+        }) {
             bottomSheet
-                .frame(maxWidth: .infinity)
-                .frame(height: 300) // tu peux ajuster
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                .presentationDetents(
+                    [.fraction(collapsedFraction), .medium, .large],
+                    selection: sheetDetentBinding
                 )
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+                .presentationCornerRadius(24)
+                .interactiveDismissDisabled(true) // ✅ never fully disappears
         }
         .onAppear {
             vm.requestLocation()
@@ -75,74 +63,53 @@ struct ContentView: View {
         } message: {
             Text(vm.errorMessage)
         }
-    }
-
-    // MARK: - Header (Apple Maps-like)
-
-    private var headerBar: some View {
-        HStack(spacing: 10) {
-            // Search “Liquid Glass”
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
-
-                TextField("Rechercher des lieux", text: $vm.query)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                    .submitLabel(.search)
-                    .onSubmit { vm.search() }
-
-                if !vm.query.isEmpty {
-                    Button {
-                        vm.query = ""
-                        vm.results = []
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .opacity(0.75)
-                    }
-                    .buttonStyle(.plain)
+        // When selection changes, mimic Apple Plans behavior
+        .onChange(of: vm.selectedItem) { _, newValue in
+            if newValue != nil {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
                 }
-
-                // “Voice” button like Apple Maps
-                Button {
-                    // placeholder
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-            )
-            .shadow(radius: 10, y: 6)
-
-            // Profile/Account button (right)
-            Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            } label: {
-                Image(systemName: "person.circle.fill")
-                    .font(.system(size: 28))
-                    .symbolRenderingMode(.hierarchical)
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 2)
         }
     }
 
-    // MARK: - Floating controls
+    // MARK: - Map Layer
+
+    private var mapLayer: some View {
+        Map(position: $vm.position, selection: $vm.selectedItem) {
+            UserAnnotation()
+
+            ForEach(vm.results, id: \.self) { item in
+                Marker(item.name ?? "Place", coordinate: item.placemark.coordinate)
+                    .tag(item)
+            }
+        }
+        .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
+        .ignoresSafeArea()
+        // ✅ Important: don't block MapKit selection
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                DispatchQueue.main.async {
+                    // Tap on empty map -> collapse panel
+                    if vm.selectedItem == nil {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                            sheetLevel = .collapsed
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // MARK: - Floating Controls
 
     private var floatingControls: some View {
         VStack(spacing: 10) {
-            // Center on user location
             Button {
                 vm.centerOnUser()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .collapsed
+                }
             } label: {
                 Image(systemName: "location.fill")
                     .font(.system(size: 16, weight: .bold))
@@ -155,9 +122,8 @@ struct ContentView: View {
             )
             .shadow(radius: 10, y: 6)
 
-            // Toggle map style
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                     vm.isSatellite.toggle()
                 }
             } label: {
@@ -174,63 +140,168 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Bottom sheet
+    // MARK: - Bottom Sheet (Search lives here)
 
     private var bottomSheet: some View {
-        VStack(spacing: 14) {
-            // Mini handle + title
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(vm.results.isEmpty ? "Suggestions" : "Résultats")
-                        .font(.headline)
-                    Text(vm.results.isEmpty ? "Cherche une adresse, un lieu, une ville…" : "\(vm.results.count) lieu(x) trouvé(s)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+
+            // ✅ Collapsed: Search bar only (Apple Plans vibe)
+            // ✅ Medium/Large: Search bar + content
+            searchBarRow
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+            if sheetLevel != .collapsed {
+                Divider().opacity(0.35)
+
+                headerRow
+                    .padding(.horizontal, 16)
+
+                if vm.results.isEmpty {
+                    suggestionsView
+                        .padding(.horizontal, 16)
+                } else {
+                    resultsList
                 }
-                Spacer()
-
-                Button {
-                    vm.search()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 16, weight: .semibold))
-                        .padding(10)
-                }
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            Divider().opacity(0.4)
-
-            // List
-            if vm.results.isEmpty {
-                suggestionsView
-            } else {
-                resultsList
             }
 
             Spacer(minLength: 10)
         }
+        .onChange(of: vm.query) { _, newValue in
+            // Optional: if user starts typing while collapsed, open to medium
+            if sheetLevel == .collapsed, newValue.count >= 2 {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
+            }
+        }
     }
+
+    // MARK: - Search Bar Row
+
+    private var searchBarRow: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .semibold))
+
+                TextField("Rechercher un lieu, une adresse…", text: $vm.query)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .submitLabel(.search)
+                    .onSubmit {
+                        vm.search()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                            sheetLevel = .medium
+                        }
+                    }
+
+                if !vm.query.isEmpty {
+                    Button {
+                        vm.query = ""
+                        vm.results = []
+                        vm.selectedItem = nil
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                            sheetLevel = .collapsed
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .opacity(0.75)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    // Placeholder mic action
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+            )
+
+            // Small button to expand quickly (nice UX)
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = (sheetLevel == .collapsed ? .medium : .collapsed)
+                }
+            } label: {
+                Image(systemName: sheetLevel == .collapsed ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 40, height: 40)
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+            )
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Header Row (only when expanded)
+
+    private var headerRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(vm.results.isEmpty ? "Suggestions" : "Résultats")
+                    .font(.headline)
+
+                Text(vm.results.isEmpty ? "Essaye : parking, restaurant, borne…" : "\(vm.results.count) lieu(x) trouvé(s)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                vm.search()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 16, weight: .semibold))
+                    .padding(10)
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Suggestions
 
     private var suggestionsView: some View {
         VStack(spacing: 10) {
             suggestionRow(icon: "car.fill", title: "Parking proche", subtitle: "Trouver un parking près de toi") {
                 vm.query = "Parking"
                 vm.search()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
             }
             suggestionRow(icon: "bolt.car.fill", title: "Recharge", subtitle: "Bornes de recharge électrique") {
                 vm.query = "Borne de recharge"
                 vm.search()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
             }
             suggestionRow(icon: "fork.knife", title: "Restaurants", subtitle: "Où manger autour de moi") {
                 vm.query = "Restaurant"
                 vm.search()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
             }
         }
-        .padding(.horizontal, 16)
     }
 
     private func suggestionRow(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
@@ -245,7 +316,9 @@ struct ContentView: View {
                     Text(title).font(.subheadline).fontWeight(.semibold)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
+
                 Spacer()
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -255,11 +328,16 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Results List
+
     private var resultsList: some View {
         List {
             ForEach(vm.results, id: \.self) { item in
                 Button {
                     vm.select(item)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                        sheetLevel = .medium
+                    }
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.name ?? "Sans nom")
@@ -280,9 +358,32 @@ struct ContentView: View {
         }
         .listStyle(.plain)
     }
+
+    // MARK: - Detent binding
+
+    private var sheetDetentBinding: Binding<PresentationDetent> {
+        Binding(
+            get: {
+                switch sheetLevel {
+                case .collapsed: return .fraction(collapsedFraction)
+                case .medium:    return .medium
+                case .large:     return .large
+                }
+            },
+            set: { newValue in
+                if newValue == .large {
+                    sheetLevel = .large
+                } else if newValue == .medium {
+                    sheetLevel = .medium
+                } else {
+                    sheetLevel = .collapsed
+                }
+            }
+        )
+    }
 }
 
-// MARK: - ViewModel
+// MARK: - ViewModel (Map + Search + Location)
 
 final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var query: String = ""
@@ -337,16 +438,15 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Search around user if possible; otherwise default region
-        let center = lastUserCoordinate ?? CLLocationCoordinate2D(latitude: 48.8566, longitude: 2.3522) // Paris fallback 🇫🇷
+        // Search around user if possible; otherwise Paris fallback 🇫🇷
+        let center = lastUserCoordinate ?? CLLocationCoordinate2D(latitude: 48.8566, longitude: 2.3522)
         let region = MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08))
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = trimmed
         request.region = region
 
-        let search = MKLocalSearch(request: request)
-        search.start { [weak self] response, error in
+        MKLocalSearch(request: request).start { [weak self] response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.show(error: error.localizedDescription)
@@ -354,6 +454,8 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
                 }
                 let items = response?.mapItems ?? []
                 self?.results = items
+
+                // Optional: auto-select first result
                 if let first = items.first {
                     self?.select(first)
                 }
@@ -367,6 +469,7 @@ final class AppleMapsLikeViewModel: NSObject, ObservableObject, CLLocationManage
     }
 
     // MARK: CLLocationManagerDelegate
+
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last else { return }
         lastUserCoordinate = loc.coordinate
