@@ -53,11 +53,18 @@ struct ContentView: View {
             .padding(.trailing, 14)
             .padding(.bottom, 140) // keep above bottom sheet
         }
-        .sheet(isPresented: $vm.isSheetPresented) {
+        .safeAreaInset(edge: .bottom) {
             bottomSheet
-                .presentationDetents([.fraction(0.18), .medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.ultraThinMaterial)
+                .frame(maxWidth: .infinity)
+                .frame(height: 300) // tu peux ajuster
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
         }
         .onAppear {
             vm.requestLocation()
