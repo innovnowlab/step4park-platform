@@ -1,6 +1,10 @@
 import SwiftUI
 
+
 struct SearchPanelView: View {
+    @EnvironmentObject var auth: AuthManager
+    @State private var showSignIn: Bool = false
+
     @ObservedObject var vm: MapViewModel
     @Binding var sheetLevel: MapScreen.SheetLevel
     @FocusState var isSearchFocused: Bool
@@ -124,14 +128,19 @@ struct SearchPanelView: View {
 
             profileButton(size: 40)
         }
+        .sheet(isPresented: $showSignIn) {
+            SignInView()
+                .environmentObject(auth)
+        }
     }
+
 
     private func profileButton(size: CGFloat) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            // TODO: open profile
+            showSignIn = true
         } label: {
-            Image(systemName: "person.fill")
+            Image(systemName: auth.user == nil ? "person.fill" : "person.crop.circle.fill.badge.checkmark")
                 .font(.system(size: size == 34 ? 14 : 15, weight: .semibold))
                 .frame(width: size, height: size)
         }
