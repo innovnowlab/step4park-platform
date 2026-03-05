@@ -1,0 +1,102 @@
+# ==============================
+# Xcode
+# ==============================
+collaborateur/
+## User-specific
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+## Build
+build/
+DerivedData/
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.dSYM.tar
+
+## SwiftPM
+.swiftpm/
+.build/
+Package.resolved
+
+# Keep Package.resolved if you want locked dependencies
+# Comment the line above if needed
+
+
+# ==============================
+# CocoaPods
+# ==============================
+
+Pods/
+Podfile.lock
+*.xcworkspace
+
+# If you use CocoaPods, KEEP:
+# *.xcworkspace
+# and DO NOT ignore Podfile.lock
+
+
+# ==============================
+# Carthage
+# ==============================
+
+Carthage/Build/
+
+
+# ==============================
+# fastlane
+# ==============================
+
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+
+# ==============================
+# Archives
+# ==============================
+
+*.xcarchive
+
+
+# ==============================
+# macOS
+# ==============================
+
+.DS_Store
+
+
+# ==============================
+# Temporary files
+# ==============================
+
+*.swp
+*.lock
+*.orig
+
+
+# ==============================
+# API Keys / Secrets
+# ==============================
+
+.env
+.env.local
+Secrets.plist
+GoogleService-Info.plist
+
+
+# ==============================
+# Logs
+# ==============================
+
+*.log
+
+
+# ==============================
+# App Store
+# ==============================
+
+app-store-connect-api-key.json
