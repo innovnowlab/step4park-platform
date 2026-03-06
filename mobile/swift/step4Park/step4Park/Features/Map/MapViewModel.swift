@@ -132,6 +132,17 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     // MARK: - Parking local + public proposal
 
+    func proposeParkingAtCoordinate(_ coordinate: CLLocationCoordinate2D) {
+        Task {
+            let geocoded = await reverseGeocodeDetails(for: coordinate)
+            await preparePublicParkingProposalIfNeeded(
+                coordinate: coordinate,
+                details: geocoded
+            )
+        }
+    }
+
+
     func parkCurrentLocation() {
         guard let current = userCoordinate else {
             errorMessage = "Position actuelle indisponible."

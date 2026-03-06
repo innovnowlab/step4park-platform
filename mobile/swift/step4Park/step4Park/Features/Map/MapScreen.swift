@@ -92,6 +92,13 @@ struct MapScreen: View {
                 sheetLevel = (newValue != nil) ? .large : .medium
             }
         }
+        .onChange(of: vm.showAddPublicParkingPrompt) { _, isShown in
+            if isShown {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
+            }
+        }
         .onChange(of: vm.userCoordinate?.latitude) { _, _ in
             nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)
         }
@@ -106,7 +113,7 @@ struct MapScreen: View {
     }
 
     private var mapLayer: some View {
-        MapReader { _ in
+        MapReader { proxy in
             Map(position: $vm.position, selection: $vm.selectedItemID) {
                 UserAnnotation()
 
@@ -144,6 +151,17 @@ struct MapScreen: View {
                         }
                     }
                 }
+            )
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.6)
+                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+                    .onEnded { value in
+                        guard case .second(true, let drag?) = value else { return }
+                        if let coordinate = proxy.convert(drag.location, from: .local) {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            vm.proposeParkingAtCoordinate(coordinate)
+                        }
+                    }
             )
         }
     }

@@ -225,7 +225,7 @@ struct SearchPanelView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ajouter cette place comme parking ?")
+                    Text("Ajouter cette adresse comme place de parking ?")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
