@@ -1,9 +1,10 @@
-import SwiftUI
 
+import SwiftUI
 
 struct SearchPanelView: View {
     @EnvironmentObject var auth: AuthManager
     @State private var showSignIn: Bool = false
+    @State private var showParkingDetails: Bool = false
 
     @ObservedObject var vm: MapViewModel
     @Binding var sheetLevel: MapScreen.SheetLevel
@@ -37,6 +38,13 @@ struct SearchPanelView: View {
             }
 
             Spacer(minLength: 8)
+        }
+        .sheet(isPresented: $showSignIn) {
+            SignInView()
+                .environmentObject(auth)
+        }
+        .sheet(isPresented: $showParkingDetails) {
+            ParkingDetailView(vm: vm)
         }
     }
 
@@ -73,6 +81,7 @@ struct SearchPanelView: View {
             )
             .buttonStyle(.plain)
 
+            parkingButton(size: 34)
             profileButton(size: 34)
         }
     }
@@ -126,14 +135,29 @@ struct SearchPanelView: View {
                     .strokeBorder(.white.opacity(0.18), lineWidth: 1)
             )
 
+            parkingButton(size: 40)
             profileButton(size: 40)
-        }
-        .sheet(isPresented: $showSignIn) {
-            SignInView()
-                .environmentObject(auth)
         }
     }
 
+    private func parkingButton(size: CGFloat) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            vm.parkCurrentLocation()
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                sheetLevel = .medium
+            }
+        } label: {
+            Image(systemName: "car.fill")
+                .font(.system(size: size == 34 ? 14 : 15, weight: .semibold))
+                .frame(width: size, height: size)
+        }
+        .background(.ultraThinMaterial, in: Circle())
+        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .shadow(radius: size == 34 ? 5 : 7, y: size == 34 ? 3 : 4)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Se garer")
+    }
 
     private func profileButton(size: CGFloat) -> some View {
         Button {
@@ -182,6 +206,10 @@ struct SearchPanelView: View {
 
     private var suggestions: some View {
         VStack(spacing: 10) {
+            if let parking = vm.savedParking {
+                savedParkingRow(parking)
+            }
+
             suggestionRow(icon: "car.fill", title: "Parking proche", subtitle: "Trouver un parking près de toi") {
                 vm.query = "Parking"
                 vm.search()
@@ -198,6 +226,40 @@ struct SearchPanelView: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) { sheetLevel = .medium }
             }
         }
+    }
+
+    private func savedParkingRow(_ parking: SavedParkingLocation) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                sheetLevel = .large
+            }
+            showParkingDetails = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "car.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Stationnement")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(parking.address)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
     }
 
     private func suggestionRow(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {

@@ -1,3 +1,4 @@
+
 import SwiftUI
 import MapKit
 
@@ -10,20 +11,18 @@ struct MapScreen: View {
 
     @FocusState private var isSearchFocused: Bool
 
-    // Keep a minimal visible strip (Apple Plans feel)
-    private let collapsedHeight: CGFloat = 0.14
+    // Keep a visible Apple Maps–like collapsed strip
+    private let collapsedPanelHeight: CGFloat = 96
 
     var body: some View {
         ZStack {
             mapLayer
 
-            // Weather + Pollution (top-left)
             WeatherPollutionWidgetView(source: vm)
                 .padding(.top, 70)
                 .padding(.leading, 12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            // Floating controls (top-right)
             VStack {
                 HStack {
                     Spacer()
@@ -49,7 +48,6 @@ struct MapScreen: View {
             .padding(.trailing, 12)
         }
         .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
-            // Keep the panel always present
             vm.isSheetPresented = true
         }) {
             SearchPanelView(
@@ -57,11 +55,11 @@ struct MapScreen: View {
                 sheetLevel: $sheetLevel,
                 isSearchFocused: _isSearchFocused
             )
-            .presentationDetents([.height(65), .medium, .large], selection: detentBinding)
+            .presentationDetents([.height(collapsedPanelHeight), .medium, .large], selection: detentBinding)
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(24)
             .presentationBackground(.ultraThinMaterial)
-            .presentationBackgroundInteraction(.enabled(upThrough: .medium)) // keep map usable
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             .interactiveDismissDisabled(true)
         }
         .onAppear {
@@ -69,7 +67,6 @@ struct MapScreen: View {
             vm.isSheetPresented = true
         }
         .onChange(of: vm.selectedItemID) { _, newValue in
-            // Selecting a place should open the panel a bit
             if newValue != nil {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                     sheetLevel = .medium
@@ -83,24 +80,42 @@ struct MapScreen: View {
         }
     }
 
-    // MARK: - Map
-
     private var mapLayer: some View {
         MapReader { _ in
             Map(position: $vm.position, selection: $vm.selectedItemID) {
                 UserAnnotation()
 
                 ForEach(vm.results) { place in
-                    if let c = place.coordinate {
-                        Marker(place.title, coordinate: c)
+                    if let coordinate = place.coordinate {
+                        Marker(place.title, coordinate: coordinate)
                             .tag(place.id)
                     }
                 }
 
-                // Parking demo markers (optional)
                 ForEach(vm.demoParkingSpots) { spot in
                     Annotation(spot.title, coordinate: spot.coordinate) {
                         ParkingSpotMarkerView(status: spot.status)
+                    }
+                }
+
+                if let parking = vm.savedParking {
+                    Annotation("Stationnement", coordinate: parking.coordinate) {
+                        ZStack(alignment: .bottom) {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    Image(systemName: "car.fill")
+                                        .foregroundStyle(.white)
+                                        .font(.system(size: 13, weight: .bold))
+                                }
+
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(Color.blue)
+                                .frame(width: 8, height: 10)
+                                .offset(y: 6)
+                        }
+                        .shadow(radius: 6, y: 3)
                     }
                 }
             }
@@ -109,13 +124,11 @@ struct MapScreen: View {
         }
     }
 
-    // MARK: - Detents
-
     private var detentBinding: Binding<PresentationDetent> {
         Binding(
             get: {
                 switch sheetLevel {
-                case .collapsed: return .fraction(collapsedHeight)
+                case .collapsed: return .height(collapsedPanelHeight)
                 case .medium: return .medium
                 case .large: return .large
                 }
@@ -127,7 +140,6 @@ struct MapScreen: View {
                     sheetLevel = .medium
                 } else {
                     sheetLevel = .collapsed
-                    // when collapsed, keep it compact
                     DispatchQueue.main.async {
                         isSearchFocused = false
                     }
