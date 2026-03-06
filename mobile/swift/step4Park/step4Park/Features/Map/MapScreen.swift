@@ -11,6 +11,7 @@ struct MapScreen: View {
     @State private var sheetLevel: SheetLevel = .collapsed
 
     @FocusState private var isSearchFocused: Bool
+    @State private var latestTouchPoint: CGPoint?
 
     private let collapsedPanelHeight: CGFloat = 96
 
@@ -165,6 +166,15 @@ struct MapScreen: View {
             .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
             .ignoresSafeArea()
             .simultaneousGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
+                        latestTouchPoint = value.location
+                    }
+                    .onEnded { _ in
+                        latestTouchPoint = nil
+                    }
+            )
+            .simultaneousGesture(
                 TapGesture().onEnded {
                     if nearbyParkingVM.selectedSpot != nil {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -175,13 +185,12 @@ struct MapScreen: View {
             )
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.6)
-                    .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
-                    .onEnded { value in
-                        guard case .second(true, let drag?) = value else { return }
-                        if let coordinate = proxy.convert(drag.location, from: .local) {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            vm.proposeParkingAtCoordinate(coordinate)
-                        }
+                    .onEnded { _ in
+                        guard let point = latestTouchPoint,
+                              let coordinate = proxy.convert(point, from: .local) else { return }
+
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        vm.proposeParkingAtCoordinate(coordinate)
                     }
             )
         }
