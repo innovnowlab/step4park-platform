@@ -83,6 +83,7 @@ struct MapScreen: View {
         .onAppear {
             vm.requestLocation()
             vm.isSheetPresented = true
+            nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
         }
         .onChange(of: vm.selectedItemID) { _, newValue in
             if newValue != nil {
@@ -102,6 +103,9 @@ struct MapScreen: View {
                     sheetLevel = .medium
                 }
             }
+        }
+        .onChange(of: vm.mapRefreshTrigger) { _, _ in
+            nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
         }
         .onChange(of: vm.userCoordinate?.latitude) { _, _ in
             nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)

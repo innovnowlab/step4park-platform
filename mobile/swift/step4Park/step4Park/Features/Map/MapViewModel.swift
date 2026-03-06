@@ -35,6 +35,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     @Published var showAddPublicParkingPrompt: Bool = false
     @Published var isSavingPublicParking: Bool = false
     @Published var pendingDroppedPinCoordinate: CLLocationCoordinate2D?
+    @Published var mapRefreshTrigger: UUID = UUID()
 
     private let locationManager = CLLocationManager()
 
@@ -44,6 +45,24 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         loadSavedParking()
     }
+
+    private func requestMapRefresh() {
+    mapRefreshTrigger = UUID()
+}
+
+    private func requestMapRefreshWithRetry() {
+        requestMapRefresh()
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            requestMapRefresh()
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
+            requestMapRefresh()
+        }
+}
 
     func requestLocation() {
         locationManager.requestWhenInUseAuthorization()
@@ -158,32 +177,34 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     }
 
     func confirmAddPendingParkingToPublicDatabase() {
-        guard let proposal = pendingPublicParkingProposal else { return }
+    guard let proposal = pendingPublicParkingProposal else { return }
 
-        Task {
-            isSavingPublicParking = true
-            defer { isSavingPublicParking = false }
+    Task {
+        isSavingPublicParking = true
+        defer { isSavingPublicParking = false }
 
-            do {
-                _ = try await ParkingCloudService.shared.saveParkingSpotIfNeeded(
-                    coordinate: proposal.coordinate,
-                    address: proposal.address,
-                    street: proposal.street,
-                    city: proposal.city,
-                    postalCode: proposal.postalCode,
-                    country: proposal.country
-                )
+        do {
+            _ = try await ParkingCloudService.shared.saveParkingSpotIfNeeded(
+                coordinate: proposal.coordinate,
+                address: proposal.address,
+                street: proposal.street,
+                city: proposal.city,
+                postalCode: proposal.postalCode,
+                country: proposal.country
+            )
 
-                pendingPublicParkingProposal = nil
-                showAddPublicParkingPrompt = false
-                pendingDroppedPinCoordinate = nil
+            pendingPublicParkingProposal = nil
+            showAddPublicParkingPrompt = false
+            pendingDroppedPinCoordinate = nil
 
-            } catch {
-                errorMessage = error.localizedDescription
-                showError = true
-            }
+            requestMapRefreshWithRetry()
+
+        } catch {
+            errorMessage = error.localizedDescription
+            showError = true
         }
     }
+}
 
     func cancelAddPendingParkingToPublicDatabase() {
         pendingPublicParkingProposal = nil
@@ -281,6 +302,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         savedParking = nil
         savedParkingImage = nil
         ParkingStorage.saveParking(nil)
+        requestMapRefresh()
     }
 
     func openDirectionsToSavedParking() {
@@ -332,6 +354,8 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         if reloadImage {
             loadSavedParkingImage()
         }
+
+        requestMapRefresh()
     }
 
     private func loadSavedParkingImage() {
