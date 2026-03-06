@@ -41,6 +41,9 @@ struct MapScreen: View {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                                 vm.isSatellite.toggle()
                             }
+                        },
+                        onRefresh: {
+                            nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
                         }
                     )
                 }

@@ -4,11 +4,13 @@ struct FloatingControlsView: View {
     let isSatellite: Bool
     let onCenter: () -> Void
     let onToggleStyle: () -> Void
+    let onRefresh: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
             compactButton(systemName: "location.fill", action: onCenter)
             compactButton(systemName: isSatellite ? "map.fill" : "globe.europe.africa.fill", action: onToggleStyle)
+            compactButton(systemName: "arrow.clockwise", action: onRefresh)
         }
     }
 
