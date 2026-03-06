@@ -1,9 +1,11 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
-/// Apple Plans–like Map screen (Liquid Glass + bottom search panel)
+/// Apple Plans–like Map screen (Liquid Glass + bottom search panel + public parking on map)
 struct MapScreen: View {
     @StateObject private var vm = MapViewModel()
+    @StateObject private var nearbyParkingVM = NearbyParkingMapViewModel()
 
     enum SheetLevel: Hashable { case collapsed, medium, large }
     @State private var sheetLevel: SheetLevel = .collapsed
@@ -28,6 +30,7 @@ struct MapScreen: View {
                         isSatellite: vm.isSatellite,
                         onCenter: {
                             vm.centerOnUser()
+                            nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                                 sheetLevel = .collapsed
                                 isSearchFocused = false
@@ -44,6 +47,18 @@ struct MapScreen: View {
             }
             .padding(.top, 70)
             .padding(.trailing, 12)
+
+            if nearbyParkingVM.isLoading {
+                ProgressView()
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 126)
+            }
         }
         .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
             vm.isSheetPresented = true
@@ -60,6 +75,9 @@ struct MapScreen: View {
             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             .interactiveDismissDisabled(true)
         }
+        .sheet(item: $nearbyParkingVM.selectedSpot) { spot in
+            ParkingSpotDetailView(spot: spot)
+        }
         .onAppear {
             vm.requestLocation()
             vm.isSheetPresented = true
@@ -70,6 +88,12 @@ struct MapScreen: View {
                     sheetLevel = .medium
                 }
             }
+        }
+        .onChange(of: vm.userCoordinate?.latitude) { _, _ in
+            nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)
+        }
+        .onChange(of: vm.userCoordinate?.longitude) { _, _ in
+            nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)
         }
         .alert("Erreur", isPresented: $vm.showError) {
             Button("OK", role: .cancel) { }
@@ -90,10 +114,25 @@ struct MapScreen: View {
                     }
                 }
 
+                ForEach(nearbyParkingVM.spots) { spot in
+                    Annotation(spot.address.isEmpty ? "Parking" : spot.address, coordinate: spot.coordinate) {
+                        Button {
+                            nearbyParkingVM.selectedSpot = spot
+                        } label: {
+                            PublicParkingMapMarkerView(
+                                spot: spot,
+                                isSelected: nearbyParkingVM.selectedSpot?.id == spot.id
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 if let savedParking = vm.savedParking {
                     Annotation("Stationnement", coordinate: savedParking.coordinate) {
                         ZStack {
-                            Circle().fill(Color.blue)
+                            Circle()
+                                .fill(Color.blue)
                                 .frame(width: 18, height: 18)
 
                             Image(systemName: "car.fill")
