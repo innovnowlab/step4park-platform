@@ -88,17 +88,10 @@ struct MapScreen: View {
             }
         }
         .onChange(of: nearbyParkingVM.selectedSpot?.id) { _, newValue in
-            if newValue != nil {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
-                    sheetLevel = .large
-                }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                sheetLevel = (newValue != nil) ? .large : .medium
             }
         }
-        .onChange(of: nearbyParkingVM.selectedSpot?.id) { _, newValue in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
-                    sheetLevel = (newValue != nil) ? .large : .medium
-            }
-     }
         .onChange(of: vm.userCoordinate?.latitude) { _, _ in
             nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)
         }
@@ -129,7 +122,6 @@ struct MapScreen: View {
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                 nearbyParkingVM.select(spot)
-                                sheetLevel = .large
                             }
                         } label: {
                             PublicParkingMapMarkerView(

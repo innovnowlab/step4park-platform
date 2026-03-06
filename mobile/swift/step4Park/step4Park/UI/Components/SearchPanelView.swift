@@ -63,8 +63,6 @@ struct SearchPanelView: View {
         }
     }
 
-    // MARK: - Collapsed
-
     private var compactSearchRow: some View {
         HStack(spacing: 10) {
             Button {
@@ -100,8 +98,6 @@ struct SearchPanelView: View {
             profileButton(size: 34)
         }
     }
-
-    // MARK: - Expanded
 
     private var expandedSearchRow: some View {
         HStack(spacing: 10) {
@@ -189,8 +185,6 @@ struct SearchPanelView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Header
-
     private var headerRow: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -216,8 +210,6 @@ struct SearchPanelView: View {
             .buttonStyle(.plain)
         }
     }
-
-    // MARK: - Prompt in panel
 
     private func addPublicParkingPrompt(_ proposal: PublicParkingProposal) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -281,8 +273,6 @@ struct SearchPanelView: View {
         )
     }
 
-    // MARK: - Selected public parking in panel
-
     private func selectedPublicParkingCard(_ spot: ParkingSpot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
@@ -332,6 +322,12 @@ struct SearchPanelView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
+                if vm.isCurrentlyParked(on: spot) {
+                    Text("Tu es actuellement garé sur cette place.")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
+
                 if let capacity = spot.capacity {
                     infoLine(title: "Capacité", value: "\(capacity) places")
                 }
@@ -352,20 +348,41 @@ struct SearchPanelView: View {
             }
 
             HStack(spacing: 10) {
-                Button {
-                    parkOnPublicSpot(spot)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "car.fill")
-                        Text("Me garer ici")
-                            .fontWeight(.semibold)
+                if vm.isCurrentlyParked(on: spot) {
+                    Button {
+                        vm.releaseCurrentParking()
+
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            nearbyParkingVM.clearSelection()
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "car.circle.badge.minus")
+                            Text("Libérer la place")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .buttonStyle(.plain)
+                    .background(.red, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
+                } else {
+                    Button {
+                        parkOnPublicSpot(spot)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "car.fill")
+                            Text("Me garer ici")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .background(.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
                 }
-                .buttonStyle(.plain)
-                .background(Color.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .foregroundStyle(.white)
 
                 Button {
                     showParkingDetails = true
@@ -430,8 +447,6 @@ struct SearchPanelView: View {
         }
         .font(.subheadline)
     }
-
-    // MARK: - Suggestions
 
     private var suggestions: some View {
         VStack(spacing: 10) {
@@ -515,8 +530,6 @@ struct SearchPanelView: View {
         }
         .buttonStyle(.plain)
     }
-
-    // MARK: - Results
 
     private var resultsList: some View {
         List {
