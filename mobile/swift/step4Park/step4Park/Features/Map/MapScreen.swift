@@ -57,7 +57,7 @@ struct MapScreen: View {
                 sheetLevel: $sheetLevel,
                 isSearchFocused: _isSearchFocused
             )
-            .presentationDetents([.fraction(collapsedHeight), .medium, .large], selection: detentBinding)
+            .presentationDetents([.height(65), .medium, .large], selection: detentBinding)
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(24)
             .presentationBackground(.ultraThinMaterial)
