@@ -140,6 +140,27 @@ struct MapScreen: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                if let dropped = vm.pendingDroppedPinCoordinate {
+                    Annotation("Nouvelle place", coordinate: dropped) {
+                        ZStack(alignment: .bottom) {
+                            Circle()
+                                .fill(Color.blue.opacity(0.92))
+                                .frame(width: 28, height: 28)
+                                .overlay {
+                                    Image(systemName: "plus")
+                                        .foregroundStyle(.white)
+                                        .font(.system(size: 12, weight: .bold))
+                                }
+
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(Color.blue.opacity(0.92))
+                                .frame(width: 8, height: 10)
+                                .offset(y: 6)
+                        }
+                        .shadow(radius: 6, y: 3)
+                    }
+                }
             }
             .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
             .ignoresSafeArea()

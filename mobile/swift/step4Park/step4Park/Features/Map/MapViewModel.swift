@@ -8,43 +8,35 @@ import Combine
 final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // MARK: - Search
-
     @Published var query: String = ""
     @Published var results: [PlaceResult] = []
     @Published var selectedItemID: UUID?
 
     // MARK: - Map camera
-
     @Published var position: MapCameraPosition = .automatic
 
     // MARK: - UI
-
     @Published var isSatellite: Bool = false
     @Published var isSheetPresented: Bool = false
 
     // MARK: - Errors
-
     @Published var showError: Bool = false
     @Published var errorMessage: String = ""
 
     // MARK: - Location
-
     @Published var userCoordinate: CLLocationCoordinate2D?
 
     // MARK: - Saved parking (local)
-
     @Published var savedParking: SavedParkingLocation?
     @Published var savedParkingImage: UIImage?
 
     // MARK: - Public CloudKit proposal
-
     @Published var pendingPublicParkingProposal: PublicParkingProposal?
     @Published var showAddPublicParkingPrompt: Bool = false
     @Published var isSavingPublicParking: Bool = false
+    @Published var pendingDroppedPinCoordinate: CLLocationCoordinate2D?
 
     private let locationManager = CLLocationManager()
-
-    // MARK: - Init
 
     override init() {
         super.init()
@@ -52,8 +44,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         loadSavedParking()
     }
-
-    // MARK: - Location
 
     func requestLocation() {
         locationManager.requestWhenInUseAuthorization()
@@ -71,8 +61,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             )
         }
     }
-
-    // MARK: - Search
 
     func clearResults() {
         results = []
@@ -132,17 +120,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     // MARK: - Parking local + public proposal
 
-    func proposeParkingAtCoordinate(_ coordinate: CLLocationCoordinate2D) {
-        Task {
-            let geocoded = await reverseGeocodeDetails(for: coordinate)
-            await preparePublicParkingProposalIfNeeded(
-                coordinate: coordinate,
-                details: geocoded
-            )
-        }
-    }
-
-
     func parkCurrentLocation() {
         guard let current = userCoordinate else {
             errorMessage = "Position actuelle indisponible."
@@ -168,6 +145,18 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         }
     }
 
+    func proposeParkingAtCoordinate(_ coordinate: CLLocationCoordinate2D) {
+        pendingDroppedPinCoordinate = coordinate
+
+        Task {
+            let geocoded = await reverseGeocodeDetails(for: coordinate)
+            await preparePublicParkingProposalIfNeeded(
+                coordinate: coordinate,
+                details: geocoded
+            )
+        }
+    }
+
     func confirmAddPendingParkingToPublicDatabase() {
         guard let proposal = pendingPublicParkingProposal else { return }
 
@@ -187,6 +176,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
                 pendingPublicParkingProposal = nil
                 showAddPublicParkingPrompt = false
+                pendingDroppedPinCoordinate = nil
 
             } catch {
                 errorMessage = error.localizedDescription
@@ -198,6 +188,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     func cancelAddPendingParkingToPublicDatabase() {
         pendingPublicParkingProposal = nil
         showAddPublicParkingPrompt = false
+        pendingDroppedPinCoordinate = nil
     }
 
     private func preparePublicParkingProposalIfNeeded(
@@ -223,14 +214,13 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             } else {
                 pendingPublicParkingProposal = nil
                 showAddPublicParkingPrompt = false
+                pendingDroppedPinCoordinate = nil
             }
         } catch {
             errorMessage = error.localizedDescription
             showError = true
         }
     }
-
-    // MARK: - Parking actions
 
     func moveSavedParkingToCurrentPosition() {
         guard let current = userCoordinate else {
@@ -330,8 +320,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         return minute == 1 ? "depuis 1 minute" : "depuis \(minute) minutes"
     }
 
-    // MARK: - Private local persistence
-
     private func loadSavedParking() {
         savedParking = ParkingStorage.loadParking()
         loadSavedParkingImage()
@@ -354,8 +342,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             savedParkingImage = nil
         }
     }
-
-    // MARK: - Reverse geocoding
 
     private func reverseGeocodeDetails(for coordinate: CLLocationCoordinate2D) async -> ReverseGeocodeDetails {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
@@ -396,8 +382,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         )
     }
 
-    // MARK: - CLLocationManagerDelegate
-
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last else { return }
 
@@ -419,8 +403,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     }
 }
 
-// MARK: - Public parking proposal
-
 struct PublicParkingProposal: Identifiable {
     let id = UUID()
     let coordinate: CLLocationCoordinate2D
@@ -430,8 +412,6 @@ struct PublicParkingProposal: Identifiable {
     let postalCode: String
     let country: String
 }
-
-// MARK: - Reverse geocode details
 
 private struct ReverseGeocodeDetails {
     let displayAddress: String
