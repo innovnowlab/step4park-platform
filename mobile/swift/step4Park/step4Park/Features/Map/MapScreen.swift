@@ -102,52 +102,62 @@ struct MapScreen: View {
         }
     }
 
-    private var mapLayer: some View {
-        MapReader { _ in
-            Map(position: $vm.position, selection: $vm.selectedItemID) {
-                UserAnnotation()
+private var mapLayer: some View {
+    MapReader { proxy in
+        Map(position: $vm.position, selection: $vm.selectedItemID) {
 
-                ForEach(vm.results) { place in
-                    if let coordinate = place.coordinate {
-                        Marker(place.title, coordinate: coordinate)
-                            .tag(place.id)
-                    }
+            UserAnnotation()
+
+            // Résultats de recherche
+            ForEach(vm.results) { place in
+                if let coordinate = place.coordinate {
+                    Marker(place.title, coordinate: coordinate)
+                        .tag(place.id)
                 }
+            }
 
-                ForEach(nearbyParkingVM.spots) { spot in
-                    Annotation(spot.address.isEmpty ? "Parking" : spot.address, coordinate: spot.coordinate) {
-                        Button {
-                            nearbyParkingVM.selectedSpot = spot
-                        } label: {
-                            PublicParkingMapMarkerView(
-                                spot: spot,
-                                isSelected: nearbyParkingVM.selectedSpot?.id == spot.id
-                            )
-                        }
-                        .buttonStyle(.plain)
+            // Parkings publics
+            ForEach(nearbyParkingVM.spots) { spot in
+                Annotation(spot.address.isEmpty ? "Parking" : spot.address,
+                           coordinate: spot.coordinate) {
+
+                    Button {
+                        nearbyParkingVM.selectedSpot = spot
+                    } label: {
+                        PublicParkingMapMarkerView(
+                            spot: spot,
+                            isSelected: nearbyParkingVM.selectedSpot?.id == spot.id
+                        )
                     }
+                    .buttonStyle(.plain)
                 }
+            }
 
-                if let savedParking = vm.savedParking {
-                    Annotation("Stationnement", coordinate: savedParking.coordinate) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue)
-                                .frame(width: 18, height: 18)
+            // Parking sauvegardé
+            if let savedParking = vm.savedParking {
+                Annotation("Stationnement", coordinate: savedParking.coordinate) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 18, height: 18)
 
-                            Image(systemName: "car.fill")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
-                        .shadow(radius: 5, y: 3)
+                        Image(systemName: "car.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
                     }
                 }
             }
-            .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic) : .standard(elevation: .realistic))
-            .ignoresSafeArea()
+        }
+        .mapStyle(vm.isSatellite ? .imagery(elevation: .realistic)
+                                 : .standard(elevation: .realistic))
+        .ignoresSafeArea()
+
+        // 👇 TAP SUR LA CARTE
+        .onTapGesture {
+            deselectParking()
         }
     }
+}
 
     private var detentBinding: Binding<PresentationDetent> {
         Binding(
@@ -172,7 +182,16 @@ struct MapScreen: View {
             }
         )
     }
+    private func deselectParking() {
+        if nearbyParkingVM.selectedSpot != nil {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                nearbyParkingVM.selectedSpot = nil
+            }
+        }
+    }
 }
+
+
 
 #Preview {
     MapScreen()
