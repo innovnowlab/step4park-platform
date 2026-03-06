@@ -454,7 +454,7 @@ struct SearchPanelView: View {
                 savedParkingRow(parking)
             }
 
-            suggestionRow(icon: "car.fill", title: "Parking proche", subtitle: "Trouver un parking près de toi") {
+            suggestionRow(icon: "mappin.circle.fill", title: "Parking proche", subtitle: "Trouver un parking près de toi") {
                 vm.query = "Parking"
                 vm.search()
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) { sheetLevel = .medium }
