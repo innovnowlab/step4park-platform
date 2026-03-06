@@ -171,7 +171,7 @@
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "trash")
-                    Text("Supprimer le lieu de stationnement")
+                    Text("Libérer la place")
                         .fontWeight(.semibold)
                 }
                 .font(.title3)

@@ -154,9 +154,18 @@ struct SearchPanelView: View {
     private func parkingButton(size: CGFloat) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            vm.parkCurrentLocation()
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                sheetLevel = .medium
+
+            if vm.savedParking != nil {
+                nearbyParkingVM.clearSelection()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .large
+                }
+                showParkingDetails = true
+            } else {
+                vm.parkCurrentLocation()
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    sheetLevel = .medium
+                }
             }
         } label: {
             Image(systemName: "car.fill")
@@ -173,7 +182,7 @@ struct SearchPanelView: View {
         )
         .shadow(radius: size == 34 ? 5 : 7, y: size == 34 ? 3 : 4)
         .buttonStyle(.plain)
-        .accessibilityLabel("Se garer")
+        .accessibilityLabel(vm.savedParking != nil ? "Voir mon stationnement" : "Se garer")
     }
 
     private func profileButton(size: CGFloat) -> some View {
