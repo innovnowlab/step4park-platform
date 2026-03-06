@@ -11,7 +11,6 @@ struct MapScreen: View {
     @State private var sheetLevel: SheetLevel = .collapsed
 
     @FocusState private var isSearchFocused: Bool
-    @State private var detailSpot: ParkingSpot?
 
     private let collapsedPanelHeight: CGFloat = 96
 
@@ -60,20 +59,13 @@ struct MapScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(.top, 126)
             }
-
-            if let selectedSpot = nearbyParkingVM.selectedSpot {
-                parkingSelectionCard(selectedSpot)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 120)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
         .sheet(isPresented: $vm.isSheetPresented, onDismiss: {
             vm.isSheetPresented = true
         }) {
             SearchPanelView(
                 vm: vm,
+                nearbyParkingVM: nearbyParkingVM,
                 sheetLevel: $sheetLevel,
                 isSearchFocused: _isSearchFocused
             )
@@ -83,9 +75,6 @@ struct MapScreen: View {
             .presentationBackground(.ultraThinMaterial)
             .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             .interactiveDismissDisabled(true)
-        }
-        .sheet(item: $detailSpot) { spot in
-            ParkingSpotDetailView(spot: spot)
         }
         .onAppear {
             vm.requestLocation()
@@ -98,6 +87,18 @@ struct MapScreen: View {
                 }
             }
         }
+        .onChange(of: nearbyParkingVM.selectedSpot?.id) { _, newValue in
+            if newValue != nil {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                    sheetLevel = .large
+                }
+            }
+        }
+        .onChange(of: nearbyParkingVM.selectedSpot?.id) { _, newValue in
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                    sheetLevel = (newValue != nil) ? .large : .medium
+            }
+     }
         .onChange(of: vm.userCoordinate?.latitude) { _, _ in
             nearbyParkingVM.loadIfNeeded(userCoordinate: vm.userCoordinate)
         }
@@ -128,6 +129,7 @@ struct MapScreen: View {
                         Button {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                 nearbyParkingVM.select(spot)
+                                sheetLevel = .large
                             }
                         } label: {
                             PublicParkingMapMarkerView(
@@ -167,155 +169,6 @@ struct MapScreen: View {
                 }
             )
         }
-    }
-
-    private func parkingSelectionCard(_ spot: ParkingSpot) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.blue.opacity(0.14))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: "car.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.blue)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(spot.address.isEmpty ? "Parking" : spot.address)
-                        .font(.headline)
-                        .lineLimit(2)
-
-                    HStack(spacing: 8) {
-                        Text(spot.parkingType.title)
-                        Text("•")
-                        Text(spot.parkingAccess.title)
-
-                        if let distance = spot.distance {
-                            Text("•")
-                            Text(distance < 1000
-                                 ? "\(Int(distance)) m"
-                                 : String(format: "%.1f km", distance / 1000))
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        nearbyParkingVM.clearSelection()
-                    }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                if let capacity = spot.capacity {
-                    infoLine(title: "Capacité", value: "\(capacity) places")
-                }
-
-                if spot.hasCharging || spot.hasDisabled || spot.hasCamera {
-                    HStack(spacing: 10) {
-                        if spot.hasCharging {
-                            tag("Recharge", systemName: "bolt.fill")
-                        }
-                        if spot.hasDisabled {
-                            tag("PMR", systemName: "figure.roll")
-                        }
-                        if spot.hasCamera {
-                            tag("Surveillé", systemName: "camera.fill")
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    parkOnPublicSpot(spot)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "car.fill")
-                        Text("Me garer ici")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.plain)
-                .background(Color.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .foregroundStyle(.white)
-
-                Button {
-                    detailSpot = spot
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle")
-                        Text("Détails")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.plain)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                )
-            }
-        }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(radius: 12, y: 6)
-    }
-
-    private func parkOnPublicSpot(_ spot: ParkingSpot) {
-        let parking = SavedParkingLocation(
-            latitude: spot.coordinate.latitude,
-            longitude: spot.coordinate.longitude,
-            address: spot.address.isEmpty ? "Parking" : spot.address
-        )
-
-        vm.savedParking = parking
-        ParkingStorage.saveParking(parking)
-
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            nearbyParkingVM.clearSelection()
-        }
-    }
-
-    private func tag(_ title: String, systemName: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemName)
-            Text(title)
-        }
-        .font(.caption)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.thinMaterial, in: Capsule())
-    }
-
-    private func infoLine(title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .fontWeight(.medium)
-        }
-        .font(.subheadline)
     }
 
     private var detentBinding: Binding<PresentationDetent> {

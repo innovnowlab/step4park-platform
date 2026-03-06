@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Combine
+
 @MainActor
 final class NearbyParkingMapViewModel: ObservableObject {
     @Published var spots: [ParkingSpot] = []
