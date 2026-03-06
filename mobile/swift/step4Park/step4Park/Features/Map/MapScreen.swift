@@ -1,4 +1,3 @@
-
 import SwiftUI
 import MapKit
 
@@ -11,7 +10,6 @@ struct MapScreen: View {
 
     @FocusState private var isSearchFocused: Bool
 
-    // Keep a visible Apple Maps–like collapsed strip
     private let collapsedPanelHeight: CGFloat = 96
 
     var body: some View {
@@ -92,26 +90,18 @@ struct MapScreen: View {
                     }
                 }
 
+                if let savedParking = vm.savedParking {
+                    Annotation("Stationnement", coordinate: savedParking.coordinate) {
+                        ZStack {
+                            Circle().fill(Color.blue)
+                                .frame(width: 18, height: 18)
 
-
-                if let parking = vm.savedParking {
-                    Annotation("Stationnement", coordinate: parking.coordinate) {
-                        ZStack(alignment: .bottom) {
-                            Circle()
-                                .fill(Color.blue)
-                                .frame(width: 30, height: 30)
-                                .overlay {
-                                    Image(systemName: "car.fill")
-                                        .foregroundStyle(.white)
-                                        .font(.system(size: 13, weight: .bold))
-                                }
-
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(Color.blue)
-                                .frame(width: 8, height: 10)
-                                .offset(y: 6)
+                            Image(systemName: "car.fill")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
                         }
-                        .shadow(radius: 6, y: 3)
+                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+                        .shadow(radius: 5, y: 3)
                     }
                 }
             }

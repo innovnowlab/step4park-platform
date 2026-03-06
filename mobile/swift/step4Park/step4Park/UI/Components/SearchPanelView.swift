@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct SearchPanelView: View {
@@ -25,6 +24,11 @@ struct SearchPanelView: View {
 
             if sheetLevel != .collapsed {
                 Divider().opacity(0.35)
+
+                if vm.showAddPublicParkingPrompt, let proposal = vm.pendingPublicParkingProposal {
+                    addPublicParkingPrompt(proposal)
+                        .padding(.horizontal, 16)
+                }
 
                 headerRow
                     .padding(.horizontal, 16)
@@ -200,6 +204,70 @@ struct SearchPanelView: View {
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .buttonStyle(.plain)
         }
+    }
+
+    // MARK: - Prompt in panel
+
+    private func addPublicParkingPrompt(_ proposal: PublicParkingProposal) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.blue.opacity(0.14))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: "car.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ajouter cette place comme parking ?")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    Text(proposal.address)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    vm.confirmAddPendingParkingToPublicDatabase()
+                } label: {
+                    Text(vm.isSavingPublicParking ? "Ajout..." : "Ajouter")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                }
+                .buttonStyle(.plain)
+                .background(.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .foregroundStyle(.white)
+                .disabled(vm.isSavingPublicParking)
+
+                Button {
+                    vm.cancelAddPendingParkingToPublicDatabase()
+                } label: {
+                    Text("Annuler")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                }
+                .buttonStyle(.plain)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                )
+                .disabled(vm.isSavingPublicParking)
+            }
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+        )
     }
 
     // MARK: - Suggestions
