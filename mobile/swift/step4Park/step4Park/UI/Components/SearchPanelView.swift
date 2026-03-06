@@ -161,10 +161,16 @@ struct SearchPanelView: View {
         } label: {
             Image(systemName: "car.fill")
                 .font(.system(size: size == 34 ? 14 : 15, weight: .semibold))
+                .foregroundStyle(vm.savedParking != nil ? Color.blue : Color.primary)
                 .frame(width: size, height: size)
         }
         .background(.ultraThinMaterial, in: Circle())
-        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .overlay(
+            Circle().strokeBorder(
+                vm.savedParking != nil ? Color.blue.opacity(0.28) : Color.white.opacity(0.18),
+                lineWidth: 1
+            )
+        )
         .shadow(radius: size == 34 ? 5 : 7, y: size == 34 ? 3 : 4)
         .buttonStyle(.plain)
         .accessibilityLabel("Se garer")
