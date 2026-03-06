@@ -3,11 +3,12 @@ import SwiftUI
 struct PublicParkingMapMarkerView: View {
     let spot: ParkingSpot
     let isSelected: Bool
+    let isParked: Bool
 
     var body: some View {
         VStack(spacing: 4) {
             HStack(spacing: 6) {
-                Image(systemName: "car.fill")
+                Image(systemName: isParked ? "car.fill" : "car")
                     .font(.system(size: 11, weight: .bold))
 
                 if isSelected {
@@ -16,35 +17,29 @@ struct PublicParkingMapMarkerView: View {
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(foregroundColor)
             .padding(.horizontal, isSelected ? 12 : 10)
             .padding(.vertical, 9)
             .background(
-                Group {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.blue)
-                    } else {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    }
-                }
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(backgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(isSelected ? .clear : .white.opacity(0.18), lineWidth: 1)
+                    .strokeBorder(borderColor, lineWidth: borderWidth)
             )
-            .shadow(radius: isSelected ? 10 : 6, y: isSelected ? 5 : 3)
+            .shadow(radius: shadowRadius, y: shadowYOffset)
 
             Image(systemName: "triangle.fill")
                 .font(.system(size: 8))
-                .foregroundStyle(isSelected ? Color.blue : Color.white.opacity(0.92))
+                .foregroundStyle(pointerColor)
                 .rotationEffect(.degrees(180))
                 .offset(y: -2)
-                .shadow(radius: isSelected ? 6 : 3, y: 2)
+                .shadow(radius: isHighlighted ? 6 : 3, y: 2)
         }
         .scaleEffect(isSelected ? 1.03 : 1.0)
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isParked)
     }
 
     private var shortTitle: String {
@@ -52,5 +47,37 @@ struct PublicParkingMapMarkerView: View {
         if !spot.city.isEmpty { return spot.city }
         if !spot.address.isEmpty { return spot.address }
         return "Parking"
+    }
+
+    private var isHighlighted: Bool {
+        isSelected || isParked
+    }
+
+    private var foregroundColor: Color {
+        isHighlighted ? .white : .primary
+    }
+
+    private var backgroundColor: Color {
+        isHighlighted ? .blue : .white.opacity(0.96)
+    }
+
+    private var borderColor: Color {
+        isHighlighted ? .clear : .white.opacity(0.18)
+    }
+
+    private var borderWidth: CGFloat {
+        isHighlighted ? 0 : 1
+    }
+
+    private var shadowRadius: CGFloat {
+        isHighlighted ? 10 : 6
+    }
+
+    private var shadowYOffset: CGFloat {
+        isHighlighted ? 5 : 3
+    }
+
+    private var pointerColor: Color {
+        isHighlighted ? .blue : Color.white.opacity(0.92)
     }
 }

@@ -126,26 +126,11 @@ struct MapScreen: View {
                         } label: {
                             PublicParkingMapMarkerView(
                                 spot: spot,
-                                isSelected: nearbyParkingVM.selectedSpot?.id == spot.id
+                                isSelected: nearbyParkingVM.selectedSpot?.id == spot.id,
+                                isParked: vm.isCurrentlyParked(on: spot)
                             )
                         }
                         .buttonStyle(.plain)
-                    }
-                }
-
-                if let savedParking = vm.savedParking {
-                    Annotation("Stationnement", coordinate: savedParking.coordinate) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue)
-                                .frame(width: 18, height: 18)
-
-                            Image(systemName: "car.fill")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
-                        .shadow(radius: 5, y: 3)
                     }
                 }
             }
