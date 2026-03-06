@@ -498,8 +498,13 @@ struct SearchPanelView: View {
             HStack(spacing: 12) {
                 Image(systemName: "car.fill")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.blue)
                     .frame(width: 38, height: 38)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.blue.opacity(0.16), lineWidth: 1)
+                    )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Stationnement")
