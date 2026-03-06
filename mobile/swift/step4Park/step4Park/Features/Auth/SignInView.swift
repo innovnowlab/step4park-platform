@@ -1,68 +1,66 @@
 import SwiftUI
 import AuthenticationServices
 import UIKit
+import CoreLocation
 
 struct SignInView: View {
     @EnvironmentObject var auth: AuthManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 16) {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    header
 
-            header
+                    if let user = auth.user {
+                        profileSection(user: user)
+                        placesSection
+                        appSection
+                        deviceSection
 
-            if let user = auth.user {
-                // ✅ Connected state (profile dashboard)
-                profileSection(user: user)
-                appSection
-                deviceSection
+                        Button(role: .destructive) {
+                            auth.signOut()
+                        } label: {
+                            Text("Se déconnecter")
+                                .font(.subheadline).fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.plain)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+                        )
+                        .padding(.top, 6)
+                    } else {
+                        Text("Connecte-toi pour sauvegarder ton profil et personnaliser l’expérience Step4Park.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 4)
 
-                Button(role: .destructive) {
-                    auth.signOut()
-                } label: {
-                    Text("Se déconnecter")
-                        .font(.subheadline).fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        SignInWithAppleButton(.signIn) { request in
+                            request.requestedScopes = [.fullName, .email]
+                        } onCompletion: { result in
+                            handle(result)
+                        }
+                        .signInWithAppleButtonStyle(.black)
+                        .frame(height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.top, 8)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(.white.opacity(0.14), lineWidth: 1)
-                )
-                .padding(.top, 6)
-
-            } else {
-                // ✅ Not connected state (Sign in with Apple)
-                Text("Connecte-toi pour sauvegarder ton profil et personnaliser l’expérience Step4Park.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 4)
-
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    handle(result)
-                }
-                .signInWithAppleButtonStyle(.black)
-                .frame(height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.top, 8)
-
-                Spacer(minLength: 0)
+                .padding(18)
             }
-
-            Spacer(minLength: 0)
+            .presentationDetents([.medium, .large])
+            .presentationCornerRadius(24)
+            .presentationBackground(.ultraThinMaterial)
         }
-        .padding(18)
-        .presentationDetents([.medium, .large])
-        .presentationCornerRadius(24)
-        .presentationBackground(.ultraThinMaterial)
     }
-
-    // MARK: - UI Blocks
 
     private var header: some View {
         HStack {
@@ -111,8 +109,49 @@ struct SignInView: View {
             }
 
             Divider().opacity(0.25)
-
             infoRow(title: "Apple User ID", value: masked(user.userID))
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+        )
+    }
+
+    private var placesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Lieux")
+                .font(.headline)
+
+            NavigationLink {
+                ProfilePlacesHomeView()
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.purple.opacity(0.18))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "tray.full.fill")
+                            .foregroundStyle(.purple)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lieux")
+                            .font(.headline)
+                        Text("Parking, restaurants et plus")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -171,24 +210,18 @@ struct SignInView: View {
         }
     }
 
-    // MARK: - Sign in handler
-
     private func handle(_ result: Result<ASAuthorization, Error>) {
         switch result {
         case .success(let authz):
             guard let credential = authz.credential as? ASAuthorizationAppleIDCredential else { return }
 
             let userID = credential.user
-
-            // Apple donne fullName/email uniquement à la 1ère autorisation
             let fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
                 .compactMap { $0 }
                 .joined(separator: " ")
                 .nilIfEmpty
-
             let email = credential.email
 
-            // Merge avec l'existant (garde les anciennes valeurs si Apple renvoie nil)
             let existing = auth.user
             let merged = UserProfile(
                 userID: userID,
@@ -200,12 +233,9 @@ struct SignInView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         case .failure:
-            // tu peux ajouter une alerte si tu veux
             break
         }
     }
-
-    // MARK: - Helpers (App/Device)
 
     private var appName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
@@ -243,9 +273,7 @@ struct SignInView: View {
 
     private func masked(_ s: String) -> String {
         guard s.count > 10 else { return s }
-        let start = s.prefix(6)
-        let end = s.suffix(4)
-        return "\(start)…\(end)"
+        return "\(s.prefix(6))…\(s.suffix(4))"
     }
 }
 

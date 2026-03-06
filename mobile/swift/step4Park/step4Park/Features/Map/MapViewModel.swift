@@ -30,9 +30,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     @Published var savedParking: SavedParkingLocation?
     @Published var savedParkingImage: UIImage?
 
-    // Demo parking spots (replace with backend / capteurs)
-    @Published var demoParkingSpots: [ParkingSpot] = []
-
     private let locationManager = CLLocationManager()
 
     override init() {
@@ -42,12 +39,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
         loadSavedParking()
 
-        demoParkingSpots = [
-            ParkingSpot(title: "S4P-001", coordinate: .init(latitude: 48.8570, longitude: 2.3524), status: .available),
-            ParkingSpot(title: "S4P-002", coordinate: .init(latitude: 48.8566, longitude: 2.3530), status: .occupied),
-            ParkingSpot(title: "S4P-003", coordinate: .init(latitude: 48.8562, longitude: 2.3516), status: .almostAvailable),
-            ParkingSpot(title: "S4P-EV", coordinate: .init(latitude: 48.8569, longitude: 2.3512), status: .ev)
-        ]
+
     }
 
     func requestLocation() {

@@ -92,11 +92,7 @@ struct MapScreen: View {
                     }
                 }
 
-                ForEach(vm.demoParkingSpots) { spot in
-                    Annotation(spot.title, coordinate: spot.coordinate) {
-                        ParkingSpotMarkerView(status: spot.status)
-                    }
-                }
+
 
                 if let parking = vm.savedParking {
                     Annotation("Stationnement", coordinate: parking.coordinate) {
