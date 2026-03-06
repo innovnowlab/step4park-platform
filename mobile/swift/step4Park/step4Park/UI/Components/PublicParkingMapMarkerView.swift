@@ -20,10 +20,7 @@ struct PublicParkingMapMarkerView: View {
             .foregroundStyle(foregroundColor)
             .padding(.horizontal, isSelected ? 12 : 10)
             .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(backgroundColor)
-            )
+            .background(backgroundView)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: borderWidth)
@@ -54,19 +51,40 @@ struct PublicParkingMapMarkerView: View {
     }
 
     private var foregroundColor: Color {
-        isHighlighted ? .white : .primary
+        if isSelected || isParked {
+            return .white
+        } else {
+            return .primary
+        }
     }
 
-    private var backgroundColor: Color {
-        isHighlighted ? .blue : .white.opacity(0.96)
+    @ViewBuilder
+    private var backgroundView: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.blue)
+                } else if isParked {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.blue.opacity(0.35)) // ✅ teinte bleue sur liquid glass
+                }
+            }
     }
 
     private var borderColor: Color {
-        isHighlighted ? .clear : .white.opacity(0.18)
+        if isSelected {
+            return .clear
+        } else if isParked {
+            return .blue.opacity(0.28)
+        } else {
+            return .white.opacity(0.18)
+        }
     }
 
     private var borderWidth: CGFloat {
-        isHighlighted ? 0 : 1
+        isSelected ? 0 : 1
     }
 
     private var shadowRadius: CGFloat {
@@ -78,6 +96,12 @@ struct PublicParkingMapMarkerView: View {
     }
 
     private var pointerColor: Color {
-        isHighlighted ? .blue : Color.white.opacity(0.92)
+        if isSelected {
+            return .blue
+        } else if isParked {
+            return Color.blue.opacity(0.7) // ✅ pointe teintée bleue
+        } else {
+            return Color.white.opacity(0.92)
+        }
     }
 }
