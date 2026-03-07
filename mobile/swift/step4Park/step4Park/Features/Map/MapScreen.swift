@@ -2,9 +2,12 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+/// Apple Plans–like Map screen (Liquid Glass + bottom search panel + public parking on map)
 struct MapScreen: View {
     @StateObject private var vm = MapViewModel()
     @StateObject private var nearbyParkingVM = NearbyParkingMapViewModel()
+    @StateObject private var autoRefreshManager = ParkingAutoRefreshManager()
+    @StateObject private var refreshSettings = ParkingRefreshSettingsStore()
 
     enum SheetLevel: Hashable { case collapsed, medium, large }
     @State private var sheetLevel: SheetLevel = .collapsed
@@ -83,6 +86,16 @@ struct MapScreen: View {
             vm.requestLocation()
             vm.isSheetPresented = true
             nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
+            startAutoRefreshIfNeeded()
+        }
+        .onDisappear {
+            autoRefreshManager.stop()
+        }
+        .onChange(of: refreshSettings.isEnabled) { _, _ in
+            startAutoRefreshIfNeeded()
+        }
+        .onChange(of: refreshSettings.refreshInterval) { _, _ in
+            startAutoRefreshIfNeeded()
         }
         .onChange(of: vm.selectedItemID) { _, newValue in
             if newValue != nil {
@@ -116,6 +129,15 @@ struct MapScreen: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(vm.errorMessage)
+        }
+    }
+
+    private func startAutoRefreshIfNeeded() {
+        autoRefreshManager.restart(
+            isEnabled: refreshSettings.isEnabled,
+            interval: refreshSettings.refreshInterval
+        ) { [vm, nearbyParkingVM] in
+            nearbyParkingVM.forceReload(userCoordinate: vm.userCoordinate)
         }
     }
 

@@ -6,6 +6,7 @@ import CoreLocation
 struct SignInView: View {
     @EnvironmentObject var auth: AuthManager
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var refreshSettings = ParkingRefreshSettingsStore()
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct SignInView: View {
 
                     if let user = auth.user {
                         profileSection(user: user)
+                        refreshSection
                         placesSection
                         appSection
                         deviceSection
@@ -40,6 +42,8 @@ struct SignInView: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 4)
+
+                        refreshSection
 
                         SignInWithAppleButton(.signIn) { request in
                             request.requestedScopes = [.fullName, .email]
@@ -119,6 +123,35 @@ struct SignInView: View {
         )
     }
 
+    private var refreshSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Actualisation des parkings")
+                .font(.headline)
+
+            Toggle("Actualisation automatique", isOn: $refreshSettings.isEnabled)
+
+            if refreshSettings.isEnabled {
+                Picker("Fréquence", selection: $refreshSettings.refreshInterval) {
+                    ForEach(refreshSettings.availableIntervals, id: \.self) { interval in
+                        Text(refreshSettings.intervalLabel(for: interval))
+                            .tag(interval)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            Text("Quand cette option est activée, la carte recharge automatiquement les places de parking autour de toi.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+        )
+    }
+
     private var placesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Lieux")
@@ -165,10 +198,9 @@ struct SignInView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Application")
                 .font(.headline)
-
-            infoRow(title: "Nom", value: appName)
-            infoRow(title: "Version", value: "\(appVersion) (\(appBuild))")
-            infoRow(title: "Bundle ID", value: bundleID)
+            infoRow(title: "Nom", value: Bundle.main.appName)
+            infoRow(title: "Version", value: Bundle.main.appVersion)
+            infoRow(title: "Build", value: Bundle.main.appBuild)
         }
         .padding(14)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -182,11 +214,9 @@ struct SignInView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Appareil")
                 .font(.headline)
-
-            infoRow(title: "iPhone", value: deviceModel)
-            infoRow(title: "iOS", value: systemVersion)
-            infoRow(title: "Langue", value: localeIdentifier)
-            infoRow(title: "Timezone", value: timeZoneIdentifier)
+            infoRow(title: "iPhone", value: UIDevice.current.model)
+            infoRow(title: "iOS", value: UIDevice.current.systemVersion)
+            infoRow(title: "Nom", value: UIDevice.current.name)
         }
         .padding(14)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -199,84 +229,59 @@ struct SignInView: View {
     private func infoRow(title: String, value: String) -> some View {
         HStack(alignment: .top) {
             Text(title)
-                .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 90, alignment: .leading)
-
+            Spacer(minLength: 16)
             Text(value)
-                .font(.subheadline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
+                .multilineTextAlignment(.trailing)
+                .fontWeight(.medium)
         }
+        .font(.subheadline)
+    }
+
+    private func masked(_ value: String) -> String {
+        guard value.count > 10 else { return value }
+        let prefix = value.prefix(6)
+        let suffix = value.suffix(4)
+        return "\(prefix)••••\(suffix)"
     }
 
     private func handle(_ result: Result<ASAuthorization, Error>) {
         switch result {
-        case .success(let authz):
-            guard let credential = authz.credential as? ASAuthorizationAppleIDCredential else { return }
-
-            let userID = credential.user
-            let fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-                .compactMap { $0 }
-                .joined(separator: " ")
-                .nilIfEmpty
-            let email = credential.email
-
-            let existing = auth.user
-            let merged = UserProfile(
-                userID: userID,
-                fullName: fullName ?? existing?.fullName,
-                email: email ?? existing?.email
-            )
-
-            auth.save(merged)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
         case .failure:
             break
+
+        case .success(let authResult):
+            guard let credential = authResult.credential as? ASAuthorizationAppleIDCredential else {
+                return
+            }
+
+            let formatter = PersonNameComponentsFormatter()
+            let fullName = formatter.string(from: credential.fullName ?? PersonNameComponents())
+            let normalizedName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let profile = UserProfile(
+                userID: credential.user,
+                fullName: normalizedName.isEmpty ? auth.user?.fullName : normalizedName,
+                email: credential.email ?? auth.user?.email
+            )
+
+            auth.save(profile)
         }
-    }
-
-    private var appName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-        ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-        ?? "Step4Park"
-    }
-
-    private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-    }
-
-    private var appBuild: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-    }
-
-    private var bundleID: String {
-        Bundle.main.bundleIdentifier ?? "—"
-    }
-
-    private var systemVersion: String {
-        UIDevice.current.systemName + " " + UIDevice.current.systemVersion
-    }
-
-    private var deviceModel: String {
-        UIDevice.current.model
-    }
-
-    private var localeIdentifier: String {
-        Locale.current.identifier
-    }
-
-    private var timeZoneIdentifier: String {
-        TimeZone.current.identifier
-    }
-
-    private func masked(_ s: String) -> String {
-        guard s.count > 10 else { return s }
-        return "\(s.prefix(6))…\(s.suffix(4))"
     }
 }
 
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
+private extension Bundle {
+    var appName: String {
+        object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+        ?? object(forInfoDictionaryKey: "CFBundleName") as? String
+        ?? "Step4Park"
+    }
+
+    var appVersion: String {
+        object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
+
+    var appBuild: String {
+        object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    }
 }
