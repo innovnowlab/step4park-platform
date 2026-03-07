@@ -166,6 +166,7 @@
 
         private var deleteButton: some View {
             Button(role: .destructive) {
+                vm.releaseCurrentParking()
                 vm.deleteSavedParking()
                 dismiss()
             } label: {
