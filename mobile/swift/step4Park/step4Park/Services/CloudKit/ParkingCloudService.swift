@@ -56,9 +56,7 @@ final class ParkingCloudService {
         )
 
         let query = CKQuery(recordType: "ParkingSpot", predicate: predicate)
-        query.sortDescriptors = [
-            NSSortDescriptor(key: "createdAt", ascending: false)
-        ]
+        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
 
         let result = try await database.records(matching: query)
 
@@ -118,12 +116,7 @@ final class ParkingCloudService {
         record["city"] = city as CKRecordValue
         record["postalCode"] = postalCode as CKRecordValue
         record["country"] = country as CKRecordValue
-
-        record["location"] = CLLocation(
-            latitude: coordinate.latitude,
-            longitude: coordinate.longitude
-        )
-
+        record["location"] = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         record["parkingType"] = parkingType.rawValue as CKRecordValue
         record["parkingAccess"] = parkingAccess.rawValue as CKRecordValue
 
@@ -142,7 +135,6 @@ final class ParkingCloudService {
         record["currency"] = currency as CKRecordValue
         record["source"] = source as CKRecordValue
         record["status"] = status as CKRecordValue
-
         record["popularityScore"] = 0 as CKRecordValue
         record["reportsCount"] = 0 as CKRecordValue
         record["photosCount"] = 0 as CKRecordValue
@@ -164,7 +156,6 @@ final class ParkingCloudService {
         postalCode: String = "",
         country: String = ""
     ) async throws -> Bool {
-
         let exists = try await addressExists(address)
         if exists {
             return false
@@ -186,16 +177,7 @@ final class ParkingCloudService {
         try await validateConfiguration()
 
         let record = try await database.record(for: recordID)
-        let cloudValue: String
-
-        switch status {
-        case .occupied:
-            cloudValue = "occupied"
-        default:
-            cloudValue = "active"
-        }
-
-        record["status"] = cloudValue as CKRecordValue
+        record["status"] = (status == .occupied ? "occupied" : "active") as CKRecordValue
         record["updatedAt"] = Date() as CKRecordValue
         _ = try await database.save(record)
     }

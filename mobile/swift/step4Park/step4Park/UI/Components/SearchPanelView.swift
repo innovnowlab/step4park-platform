@@ -234,13 +234,13 @@ struct SearchPanelView: View {
                         .fill(Color.blue.opacity(0.14))
                         .frame(width: 40, height: 40)
 
-                    Image(systemName: "plus.circle.fill")
+                    Image(systemName: "car.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ajouter cette adresse comme place de parking ?")
+                    Text("Ajouter l'adresse comme place de parking ?")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
@@ -389,6 +389,9 @@ struct SearchPanelView: View {
                 } else {
                     Button {
                         vm.park(onPublicSpot: spot)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            nearbyParkingVM.clearSelection()
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "car.fill")

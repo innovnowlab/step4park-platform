@@ -11,15 +11,8 @@ extension MapViewModel {
             return true
         }
 
-        let saved = CLLocation(
-            latitude: savedParking.latitude,
-            longitude: savedParking.longitude
-        )
-
-        let selected = CLLocation(
-            latitude: spot.coordinate.latitude,
-            longitude: spot.coordinate.longitude
-        )
+        let saved = CLLocation(latitude: savedParking.latitude, longitude: savedParking.longitude)
+        let selected = CLLocation(latitude: spot.coordinate.latitude, longitude: spot.coordinate.longitude)
 
         return saved.distance(from: selected) < 3
     }
@@ -34,22 +27,23 @@ extension MapViewModel {
 
         savedParking = parking
         ParkingStorage.saveParking(parking)
-        mapRefreshTrigger = UUID()
+        triggerMapRefresh()
 
         Task {
-            try? await ParkingCloudService.shared.updateParkingSpotStatus(
-                recordID: spot.id,
-                status: .occupied
-            )
+            do {
+                try await ParkingCloudService.shared.updateParkingSpotStatus(
+                    recordID: spot.id,
+                    status: .occupied
+                )
 
-            await MainActor.run {
-                mapRefreshTrigger = UUID()
-            }
-
-            try? await Task.sleep(nanoseconds: 900_000_000)
-
-            await MainActor.run {
-                mapRefreshTrigger = UUID()
+                await MainActor.run {
+                    triggerMapRefreshWithRetry()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Impossible de mettre à jour le statut dans CloudKit : \(error.localizedDescription)"
+                    showError = true
+                }
             }
         }
     }
@@ -62,19 +56,20 @@ extension MapViewModel {
         guard let parkedRecordName else { return }
 
         Task {
-            try? await ParkingCloudService.shared.updateParkingSpotStatus(
-                recordID: CKRecord.ID(recordName: parkedRecordName),
-                status: .available
-            )
+            do {
+                try await ParkingCloudService.shared.updateParkingSpotStatus(
+                    recordID: CKRecord.ID(recordName: parkedRecordName),
+                    status: .available
+                )
 
-            await MainActor.run {
-                mapRefreshTrigger = UUID()
-            }
-
-            try? await Task.sleep(nanoseconds: 900_000_000)
-
-            await MainActor.run {
-                mapRefreshTrigger = UUID()
+                await MainActor.run {
+                    triggerMapRefreshWithRetry()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Impossible de libérer la place dans CloudKit : \(error.localizedDescription)"
+                    showError = true
+                }
             }
         }
     }

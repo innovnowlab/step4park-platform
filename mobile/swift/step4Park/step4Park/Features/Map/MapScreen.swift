@@ -227,3 +227,7 @@ struct MapScreen: View {
         )
     }
 }
+
+#Preview {
+    MapScreen()
+}

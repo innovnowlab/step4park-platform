@@ -7,30 +7,17 @@ import Combine
 @MainActor
 final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
 
-    // MARK: - Search
     @Published var query: String = ""
     @Published var results: [PlaceResult] = []
     @Published var selectedItemID: UUID?
-
-    // MARK: - Map camera
     @Published var position: MapCameraPosition = .automatic
-
-    // MARK: - UI
     @Published var isSatellite: Bool = false
     @Published var isSheetPresented: Bool = false
-
-    // MARK: - Errors
     @Published var showError: Bool = false
     @Published var errorMessage: String = ""
-
-    // MARK: - Location
     @Published var userCoordinate: CLLocationCoordinate2D?
-
-    // MARK: - Saved parking (local)
     @Published var savedParking: SavedParkingLocation?
     @Published var savedParkingImage: UIImage?
-
-    // MARK: - Public CloudKit proposal
     @Published var pendingPublicParkingProposal: PublicParkingProposal?
     @Published var showAddPublicParkingPrompt: Bool = false
     @Published var isSavingPublicParking: Bool = false
@@ -46,23 +33,24 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         loadSavedParking()
     }
 
-    private func requestMapRefresh() {
-    mapRefreshTrigger = UUID()
-}
+    // Accessible from extensions in other files
+    func triggerMapRefresh() {
+        mapRefreshTrigger = UUID()
+    }
 
-    private func requestMapRefreshWithRetry() {
-        requestMapRefresh()
+    func triggerMapRefreshWithRetry() {
+        triggerMapRefresh()
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 800_000_000)
-            requestMapRefresh()
+            triggerMapRefresh()
         }
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_600_000_000)
-            requestMapRefresh()
+            triggerMapRefresh()
         }
-}
+    }
 
     func requestLocation() {
         locationManager.requestWhenInUseAuthorization()
@@ -137,8 +125,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         }
     }
 
-    // MARK: - Parking local + public proposal
-
     func parkCurrentLocation() {
         guard let current = userCoordinate else {
             errorMessage = "Position actuelle indisponible."
@@ -177,34 +163,34 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     }
 
     func confirmAddPendingParkingToPublicDatabase() {
-    guard let proposal = pendingPublicParkingProposal else { return }
+        guard let proposal = pendingPublicParkingProposal else { return }
 
-    Task {
-        isSavingPublicParking = true
-        defer { isSavingPublicParking = false }
+        Task {
+            isSavingPublicParking = true
+            defer { isSavingPublicParking = false }
 
-        do {
-            _ = try await ParkingCloudService.shared.saveParkingSpotIfNeeded(
-                coordinate: proposal.coordinate,
-                address: proposal.address,
-                street: proposal.street,
-                city: proposal.city,
-                postalCode: proposal.postalCode,
-                country: proposal.country
-            )
+            do {
+                _ = try await ParkingCloudService.shared.saveParkingSpotIfNeeded(
+                    coordinate: proposal.coordinate,
+                    address: proposal.address,
+                    street: proposal.street,
+                    city: proposal.city,
+                    postalCode: proposal.postalCode,
+                    country: proposal.country
+                )
 
-            pendingPublicParkingProposal = nil
-            showAddPublicParkingPrompt = false
-            pendingDroppedPinCoordinate = nil
+                pendingPublicParkingProposal = nil
+                showAddPublicParkingPrompt = false
+                pendingDroppedPinCoordinate = nil
 
-            requestMapRefreshWithRetry()
+                triggerMapRefreshWithRetry()
 
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
         }
     }
-}
 
     func cancelAddPendingParkingToPublicDatabase() {
         pendingPublicParkingProposal = nil
@@ -278,10 +264,8 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
         ParkingStorage.deleteImage(named: parking.photoFilename)
 
-        guard
-            let image = UIImage(data: data),
-            let jpeg = image.jpegData(compressionQuality: 0.82)
-        else {
+        guard let image = UIImage(data: data),
+              let jpeg = image.jpegData(compressionQuality: 0.82) else {
             errorMessage = "Impossible de lire la photo sélectionnée."
             showError = true
             return
@@ -302,7 +286,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         savedParking = nil
         savedParkingImage = nil
         ParkingStorage.saveParking(nil)
-        requestMapRefresh()
+        triggerMapRefresh()
     }
 
     func openDirectionsToSavedParking() {
@@ -311,29 +295,21 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         let item = MKMapItem(placemark: MKPlacemark(coordinate: savedParking.coordinate))
         item.name = "Stationnement"
         item.openInMaps(
-            launchOptions: [
-                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
-            ]
+            launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving]
         )
     }
 
     var elapsedParkingText: String {
         guard let createdAt = savedParking?.createdAt else { return "—" }
 
-        let components = Calendar.current.dateComponents(
-            [.month, .day, .hour, .minute],
-            from: createdAt,
-            to: Date()
-        )
+        let components = Calendar.current.dateComponents([.month, .day, .hour, .minute], from: createdAt, to: Date())
 
         if let month = components.month, month > 0 {
             return month == 1 ? "depuis 1 mois" : "depuis \(month) mois"
         }
-
         if let day = components.day, day > 0 {
             return day == 1 ? "depuis 1 jour" : "depuis \(day) jours"
         }
-
         if let hour = components.hour, hour > 0 {
             return hour == 1 ? "depuis 1 heure" : "depuis \(hour) heures"
         }
@@ -355,7 +331,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             loadSavedParkingImage()
         }
 
-        requestMapRefresh()
+        triggerMapRefresh()
     }
 
     private func loadSavedParkingImage() {
@@ -393,9 +369,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
                     country: placemark.country ?? ""
                 )
             }
-        } catch {
-            // fallback below
-        }
+        } catch { }
 
         return ReverseGeocodeDetails(
             displayAddress: "\(String(format: "%.5f", coordinate.latitude)), \(String(format: "%.5f", coordinate.longitude))",
@@ -408,7 +382,6 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last else { return }
-
         userCoordinate = loc.coordinate
 
         if case .automatic = position {
