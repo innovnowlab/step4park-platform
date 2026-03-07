@@ -17,7 +17,23 @@ extension MapViewModel {
         return saved.distance(from: selected) < 3
     }
 
+    func isParkedElsewhere(than spot: ParkingSpot) -> Bool {
+        guard savedParking != nil else { return false }
+        return !isCurrentlyParked(on: spot)
+    }
+
+    func canPark(onPublicSpot spot: ParkingSpot) -> Bool {
+        guard spot.status != .occupied else { return false }
+        return !isParkedElsewhere(than: spot)
+    }
+
     func park(onPublicSpot spot: ParkingSpot) {
+        guard canPark(onPublicSpot: spot) else {
+            errorMessage = "Tu es déjà garé sur une autre place. Libère d’abord ta place actuelle pour en réserver une autre."
+            showError = true
+            return
+        }
+
         let parking = SavedParkingLocation(
             latitude: spot.coordinate.latitude,
             longitude: spot.coordinate.longitude,

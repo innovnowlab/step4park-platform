@@ -341,6 +341,10 @@ struct SearchPanelView: View {
                     Text("Tu es actuellement garé sur cette place.")
                         .font(.caption)
                         .foregroundStyle(.blue)
+                } else if vm.isParkedElsewhere(than: spot) {
+                    Text("Tu dois d’abord libérer ta place actuelle avant d’en réserver une autre.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 } else if spot.status == .occupied {
                     Text("Cette place est actuellement occupée.")
                         .font(.caption)
@@ -389,22 +393,34 @@ struct SearchPanelView: View {
                 } else {
                     Button {
                         vm.park(onPublicSpot: spot)
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            nearbyParkingVM.clearSelection()
+
+                        if vm.canPark(onPublicSpot: spot) {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                nearbyParkingVM.clearSelection()
+                            }
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "car.fill")
-                            Text(spot.status == .occupied ? "Place occupée" : "Me garer ici")
-                                .fontWeight(.semibold)
+                            Image(systemName: vm.isParkedElsewhere(than: spot) ? "car.circle.badge.exclamationmark" : "car.fill")
+                            Text(
+                                vm.isParkedElsewhere(than: spot)
+                                ? "Libérer ma place d’abord"
+                                : (spot.status == .occupied ? "Place occupée" : "Me garer ici")
+                            )
+                            .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                     }
                     .buttonStyle(.plain)
-                    .background(spot.status == .occupied ? .red.opacity(0.85) : .blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(
+                        vm.isParkedElsewhere(than: spot)
+                        ? .orange.opacity(0.9)
+                        : (spot.status == .occupied ? .red.opacity(0.85) : .blue),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
                     .foregroundStyle(.white)
-                    .disabled(spot.status == .occupied)
+                    .disabled(spot.status == .occupied || vm.isParkedElsewhere(than: spot))
                 }
 
                 Button {
