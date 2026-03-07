@@ -19,6 +19,9 @@ extension CKRecord {
             computedDistance = nil
         }
 
+        let rawStatus = (self["status"] as? String ?? "active").lowercased()
+        let mappedStatus: ParkingSpotStatus = (rawStatus == "occupied") ? .occupied : .available
+
         return ParkingSpot(
             id: recordID,
             address: self["address"] as? String ?? "",
@@ -29,6 +32,7 @@ extension CKRecord {
             coordinate: location.coordinate,
             parkingType: ParkingType(rawValue: self["parkingType"] as? String ?? "") ?? .street,
             parkingAccess: ParkingAccess(rawValue: self["parkingAccess"] as? String ?? "") ?? .publicAccess,
+            status: mappedStatus,
             capacity: self["capacity"] as? Int,
             hasCharging: self["hasCharging"] as? Bool ?? false,
             hasDisabled: self["hasDisabled"] as? Bool ?? false,

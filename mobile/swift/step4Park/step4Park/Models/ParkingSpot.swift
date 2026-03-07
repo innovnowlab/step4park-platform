@@ -15,6 +15,7 @@ struct ParkingSpot: Identifiable, Hashable {
 
     var parkingType: ParkingType
     var parkingAccess: ParkingAccess
+    var status: ParkingSpotStatus
 
     var capacity: Int?
     var hasCharging: Bool

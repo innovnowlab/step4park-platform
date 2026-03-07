@@ -7,7 +7,6 @@ final class ParkingCloudService {
 
     static let shared = ParkingCloudService()
 
-    // ⚠️ Remplace par ton vrai container iCloud
     private let containerIdentifier = "iCloud.com.innovnowlab.step4park"
 
     private var container: CKContainer {
@@ -19,8 +18,6 @@ final class ParkingCloudService {
     }
 
     private init() {}
-
-    // MARK: - Health Check
 
     func validateConfiguration() async throws {
         do {
@@ -44,8 +41,6 @@ final class ParkingCloudService {
             throw ParkingCloudServiceError.configurationFetchFailed(underlying: error)
         }
     }
-
-    // MARK: - Fetch Nearby Parking
 
     func fetchNearbyParking(
         userLocation: CLLocation,
@@ -77,8 +72,6 @@ final class ParkingCloudService {
         }
     }
 
-    // MARK: - Check Existing Address
-
     func addressExists(_ address: String) async throws -> Bool {
         try await validateConfiguration()
 
@@ -91,8 +84,6 @@ final class ParkingCloudService {
         let result = try await database.records(matching: query, resultsLimit: 1)
         return !result.matchResults.isEmpty
     }
-
-    // MARK: - Save Parking Spot
 
     func saveParkingSpot(
         coordinate: CLLocationCoordinate2D,
@@ -164,8 +155,6 @@ final class ParkingCloudService {
         _ = try await database.save(record)
     }
 
-    // MARK: - Save If Needed
-
     @discardableResult
     func saveParkingSpotIfNeeded(
         coordinate: CLLocationCoordinate2D,
@@ -192,9 +181,25 @@ final class ParkingCloudService {
 
         return true
     }
-}
 
-// MARK: - Error
+    func updateParkingSpotStatus(recordID: CKRecord.ID, status: ParkingSpotStatus) async throws {
+        try await validateConfiguration()
+
+        let record = try await database.record(for: recordID)
+        let cloudValue: String
+
+        switch status {
+        case .occupied:
+            cloudValue = "occupied"
+        default:
+            cloudValue = "active"
+        }
+
+        record["status"] = cloudValue as CKRecordValue
+        record["updatedAt"] = Date() as CKRecordValue
+        _ = try await database.save(record)
+    }
+}
 
 enum ParkingCloudServiceError: LocalizedError {
     case noICloudAccount

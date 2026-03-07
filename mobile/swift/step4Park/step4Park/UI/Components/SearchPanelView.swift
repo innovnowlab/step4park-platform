@@ -234,13 +234,13 @@ struct SearchPanelView: View {
                         .fill(Color.blue.opacity(0.14))
                         .frame(width: 40, height: 40)
 
-                    Image(systemName: "car.fill")
+                    Image(systemName: "plus.circle.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ajouter l'adresse comme place de parking ?")
+                    Text("Ajouter cette adresse comme place de parking ?")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
@@ -341,6 +341,10 @@ struct SearchPanelView: View {
                     Text("Tu es actuellement garé sur cette place.")
                         .font(.caption)
                         .foregroundStyle(.blue)
+                } else if spot.status == .occupied {
+                    Text("Cette place est actuellement occupée.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
                 }
 
                 if let capacity = spot.capacity {
@@ -384,19 +388,20 @@ struct SearchPanelView: View {
                     .foregroundStyle(.white)
                 } else {
                     Button {
-                        parkOnPublicSpot(spot)
+                        vm.park(onPublicSpot: spot)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "car.fill")
-                            Text("Me garer ici")
+                            Text(spot.status == .occupied ? "Place occupée" : "Me garer ici")
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                     }
                     .buttonStyle(.plain)
-                    .background(.blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(spot.status == .occupied ? .red.opacity(0.85) : .blue, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
+                    .disabled(spot.status == .occupied)
                 }
 
                 Button {
@@ -424,21 +429,6 @@ struct SearchPanelView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(.white.opacity(0.16), lineWidth: 1)
         )
-    }
-
-    private func parkOnPublicSpot(_ spot: ParkingSpot) {
-        let parking = SavedParkingLocation(
-            latitude: spot.coordinate.latitude,
-            longitude: spot.coordinate.longitude,
-            address: spot.address.isEmpty ? "Parking" : spot.address
-        )
-
-        vm.savedParking = parking
-        ParkingStorage.saveParking(parking)
-
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            nearbyParkingVM.clearSelection()
-        }
     }
 
     private func tag(_ title: String, systemName: String) -> some View {

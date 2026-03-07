@@ -4,6 +4,7 @@ struct PublicParkingMapMarkerView: View {
     let spot: ParkingSpot
     let isSelected: Bool
     let isParked: Bool
+    let isOccupied: Bool
 
     var body: some View {
         VStack(spacing: 4) {
@@ -37,6 +38,7 @@ struct PublicParkingMapMarkerView: View {
         .scaleEffect(isSelected ? 1.03 : 1.0)
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isParked)
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isOccupied)
     }
 
     private var shortTitle: String {
@@ -47,15 +49,11 @@ struct PublicParkingMapMarkerView: View {
     }
 
     private var isHighlighted: Bool {
-        isSelected || isParked
+        isSelected || isParked || isOccupied
     }
 
     private var foregroundColor: Color {
-        if isSelected || isParked {
-            return .white
-        } else {
-            return .primary
-        }
+        (isSelected || isParked || isOccupied) ? .white : .primary
     }
 
     @ViewBuilder
@@ -63,21 +61,26 @@ struct PublicParkingMapMarkerView: View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(.ultraThinMaterial)
             .overlay {
-                if isSelected {
+                if isParked {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.blue.opacity(0.35))
+                } else if isOccupied {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.red.opacity(0.38))
+                } else if isSelected {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.blue)
-                } else if isParked {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.blue.opacity(0.35)) // ✅ teinte bleue sur liquid glass
                 }
             }
     }
 
     private var borderColor: Color {
-        if isSelected {
-            return .clear
-        } else if isParked {
+        if isParked {
             return .blue.opacity(0.28)
+        } else if isOccupied {
+            return .red.opacity(0.28)
+        } else if isSelected {
+            return .clear
         } else {
             return .white.opacity(0.18)
         }
@@ -96,10 +99,12 @@ struct PublicParkingMapMarkerView: View {
     }
 
     private var pointerColor: Color {
-        if isSelected {
+        if isParked {
+            return Color.blue.opacity(0.7)
+        } else if isOccupied {
+            return Color.red.opacity(0.76)
+        } else if isSelected {
             return .blue
-        } else if isParked {
-            return Color.blue.opacity(0.7) // ✅ pointe teintée bleue
         } else {
             return Color.white.opacity(0.92)
         }

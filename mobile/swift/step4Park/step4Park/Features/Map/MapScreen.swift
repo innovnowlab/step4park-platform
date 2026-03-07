@@ -2,7 +2,6 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-/// Apple Plans–like Map screen (Liquid Glass + bottom search panel + public parking on map)
 struct MapScreen: View {
     @StateObject private var vm = MapViewModel()
     @StateObject private var nearbyParkingVM = NearbyParkingMapViewModel()
@@ -142,7 +141,8 @@ struct MapScreen: View {
                             PublicParkingMapMarkerView(
                                 spot: spot,
                                 isSelected: nearbyParkingVM.selectedSpot?.id == spot.id,
-                                isParked: vm.isCurrentlyParked(on: spot)
+                                isParked: vm.isCurrentlyParked(on: spot),
+                                isOccupied: spot.status == .occupied && !vm.isCurrentlyParked(on: spot)
                             )
                         }
                         .buttonStyle(.plain)
@@ -226,8 +226,4 @@ struct MapScreen: View {
             }
         )
     }
-}
-
-#Preview {
-    MapScreen()
 }
